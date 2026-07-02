@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - `--lib` for `rdbg launch` / `rdbg trace` (MCP `debug_launch` / `debug_trace`
   accept `lib: true`) — build and debug the library's own unit-test binary

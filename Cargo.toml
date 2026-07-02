@@ -1,6 +1,6 @@
 [package]
 name = "rdbg"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "IDE-grade Rust debugging for coding agents — a skill and an MCP server, built on rust-analyzer and lldb-dap."
 license = "MIT OR Apache-2.0"
