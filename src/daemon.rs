@@ -137,7 +137,11 @@ impl Daemon {
             let tail = if out.len() > 2000 { out[out.len() - 2000..].to_string() } else { out };
             return json!({"exited": true, "exit_code": stop.exit_code, "output": tail});
         }
-        summarize(self.session.as_ref().unwrap(), &stop)
+        // snapshot + diff the top-frame locals before borrowing immutably to summarize
+        let delta = self.session.as_mut().map(|s| s.locals_delta()).unwrap_or_default();
+        let mut summary = summarize(self.session.as_ref().unwrap(), &stop);
+        summary["delta"] = json!(delta);
+        summary
     }
 
     /// Run a session action that yields a stop, then summarize it — without
@@ -334,7 +338,12 @@ impl Daemon {
             }
             "bp_enable" => json!({"ok": s.set_enabled(req["id"].as_str().unwrap_or(""), req["enabled"].as_bool().unwrap_or(true))}),
             "threads" => json!({"ok": true, "threads": s.threads_text()}),
-            "vars" => json!({"ok": true, "vars": s.locals_text(req["depth"].as_i64().unwrap_or(3) as i32)}),
+            "vars" => {
+                let full = req["full"].as_bool().unwrap_or(false);
+                let depth = req["depth"].as_i64().unwrap_or(if full { 10 } else { 3 }) as i32;
+                let cap = if full { 64 } else { 12 };
+                json!({"ok": true, "vars": s.locals_text_capped(depth, cap)})
+            }
             "eval" => json!({"ok": true, "value": s.evaluate(req["expr"].as_str().unwrap_or(""))}),
             "set" => json!({"ok": true, "value": s.set_variable(req["path"].as_str().unwrap_or(""), req["value"].as_str().unwrap_or(""))}),
             "watch_expr" => {

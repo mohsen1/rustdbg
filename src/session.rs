@@ -94,6 +94,9 @@ pub struct Session {
     pub watches: Vec<String>,
     pub output: Vec<String>,
     pub last_stop: Option<Stop>,
+    /// Top-frame locals (name -> "type = value") snapshot from the previous stop,
+    /// used to render only what changed at the next stop.
+    prev_locals: HashMap<String, String>,
     configured: bool,
 }
 
@@ -124,6 +127,7 @@ impl Session {
             watches: vec![],
             output: vec![],
             last_stop: None,
+            prev_locals: HashMap::new(),
             configured: false,
         })
     }
@@ -161,6 +165,7 @@ impl Session {
         self.threads.clear();
         self.cur_thread = None;
         self.cur_frame = 0;
+        self.prev_locals.clear(); // fresh program — nothing to diff against yet
         self.launch(false)?;
         self.run()
     }
@@ -602,13 +607,65 @@ impl Session {
     }
 
     pub fn locals_text(&self, depth: i32) -> String {
+        self.locals_text_capped(depth, 12)
+    }
+
+    /// Like `locals_text`, but with an explicit per-level child cap (raised by
+    /// `vars --full` for a complete dump).
+    pub fn locals_text_capped(&self, depth: i32, cap: usize) -> String {
         let rref = self.locals_ref();
         let mut out = vec![];
-        self.render(rref, depth, 12, "  ", &mut out);
+        self.render(rref, depth, cap, "  ", &mut out);
         if out.is_empty() {
             "  (no locals)".to_string()
         } else {
             out.join("\n")
+        }
+    }
+
+    /// Snapshot the top frame's depth-1 locals (name -> "type = value"), diff
+    /// against the previous stop's snapshot, and return only what changed:
+    /// `~ name` for a changed value (with the old one), `+ name` for a new local,
+    /// and a `(+N unchanged)` tail. Updates the snapshot for the next stop.
+    pub fn locals_delta(&mut self) -> String {
+        let rref = self.locals_ref();
+        let mut cur: Vec<(String, String)> = vec![];
+        if rref != 0 {
+            let resp = self.dap.request_soft("variables", json!({"variablesReference": rref}), Duration::from_secs(10));
+            if let Some(vars) = resp["body"]["variables"].as_array() {
+                for v in vars.iter().take(24) {
+                    let name = v["name"].as_str().unwrap_or("?").to_string();
+                    let val = v["value"].as_str().unwrap_or("");
+                    let typ = short_type(v["type"].as_str().unwrap_or(""));
+                    let child = v["variablesReference"].as_i64().unwrap_or(0);
+                    let leaf = is_leaf_value(val) || is_leaf_type(&typ) || child == 0;
+                    let shown = if leaf || is_leaf_value(val) { val } else { "" };
+                    let repr = if shown.is_empty() { typ } else { format!("{typ} = {shown}") };
+                    cur.push((name, repr));
+                }
+            }
+        }
+        let mut lines = vec![];
+        let mut unchanged = 0;
+        for (name, repr) in &cur {
+            match self.prev_locals.get(name) {
+                Some(old) if old == repr => unchanged += 1,
+                Some(old) => lines.push(format!("  ~ {name}: {repr} (was {})", value_part(old))),
+                None => lines.push(format!("  + {name}: {repr}")),
+            }
+        }
+        self.prev_locals = cur.into_iter().collect();
+        if lines.is_empty() {
+            if unchanged == 0 {
+                "  (no locals)".to_string()
+            } else {
+                format!("  (no change; {unchanged} unchanged)")
+            }
+        } else {
+            if unchanged > 0 {
+                lines.push(format!("  (+{unchanged} unchanged)"));
+            }
+            lines.join("\n")
         }
     }
 
@@ -733,6 +790,12 @@ impl Session {
         let _ = self.dap.request_soft("disconnect", json!({"terminateDebuggee": true}), Duration::from_secs(5));
         self.dap.close();
     }
+}
+
+/// The value side of a `type = value` render (for the `(was …)` note); returns
+/// the whole string if there is no `=`.
+fn value_part(repr: &str) -> &str {
+    repr.rsplit_once(" = ").map(|(_, v)| v).unwrap_or(repr)
 }
 
 /// Split `items[0].qty` into `["items", "[0]", "qty"]` — Vec/array children are

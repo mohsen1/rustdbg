@@ -40,7 +40,7 @@ THREADS / FRAMES
   rdbg frame <n> | up | down
 
 INSPECT / MUTATE
-  rdbg vars [--depth N]         locals with real Rust values
+  rdbg vars [--depth N] [--full]   locals with real Rust values (--full: deep dump)
   rdbg eval <path> [<path>...]  evaluate one or more variable paths
   rdbg set <path> = <value> [--then continue|step]   change a value (test a fix)
   rdbg watch-expr add|rm <path>
@@ -205,6 +205,11 @@ fn fmt_stop(stop: &Value) -> String {
             lines.push(src.to_string());
         }
     }
+    if let Some(d) = stop["delta"].as_str() {
+        if !d.is_empty() {
+            lines.push(format!("changed:\n{d}"));
+        }
+    }
     if let Some(w) = stop["watches"].as_str() {
         if !w.is_empty() {
             lines.push(format!("watches:\n{w}"));
@@ -332,8 +337,12 @@ fn run_command(ws: &Path, cmd: &str, rest: &[String]) -> String {
             }
         }
         "vars" => {
-            let depth = opt(rest, "--depth").and_then(|d| d.parse::<i64>().ok()).unwrap_or(3);
-            fmt_field(r(json!({"cmd": "vars", "depth": depth})), "vars")
+            let full = rest.iter().any(|a| a == "--full");
+            let mut payload = json!({"cmd": "vars", "full": full});
+            if let Some(d) = opt(rest, "--depth").and_then(|d| d.parse::<i64>().ok()) {
+                payload["depth"] = json!(d);
+            }
+            fmt_field(r(payload), "vars")
         }
         "eval" => {
             // evaluate one or more variable paths in a single agent call

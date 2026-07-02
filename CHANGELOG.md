@@ -5,6 +5,10 @@
 - `rdbg do '<cmd>; <cmd>; ...'` / MCP `debug_do` — run several subcommands in one
   call. Each is labeled with its command; the batch stops at the first error or
   program exit. One call instead of a fixed break/inspect/continue recipe.
+- Delta stops — each stop now also lists just the top-frame locals that changed
+  since the previous stop (`~ sum: u32 = 6 (was 3)`, `+ new`, `(+N unchanged)`),
+  not the full dump. `rdbg vars --full` (MCP `debug_locals` `full:true`) forces
+  the complete deep dump; `rdbg vars` is unchanged.
 
 ## 0.2.0
 

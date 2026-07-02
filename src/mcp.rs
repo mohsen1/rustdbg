@@ -45,8 +45,8 @@ fn tools() -> Vec<Value> {
             "inputSchema": obj(json!({"location": {"type": "string"}}))}),
         json!({"name": "debug_pause", "description": "Interrupt a running program.", "inputSchema": obj(json!({}))}),
         json!({"name": "debug_restart", "description": "Relaunch with the same line/function/panic breakpoints.", "inputSchema": obj(json!({}))}),
-        json!({"name": "debug_locals", "description": "Local variables at the current frame, with real Rust values.",
-            "inputSchema": obj(json!({"depth": {"type": "integer"}}))}),
+        json!({"name": "debug_locals", "description": "Local variables at the current frame, with real Rust values. `full:true` forces a deep dump (otherwise a stop already shows what changed).",
+            "inputSchema": obj(json!({"depth": {"type": "integer"}, "full": {"type": "boolean"}}))}),
         json!({"name": "debug_eval", "description": "Evaluate a variable path (e.g. items[0].qty) at the current frame.",
             "inputSchema": obj(json!({"path": {"type": "string"}}))}),
         json!({"name": "debug_set", "description": "Change a variable's value.",
@@ -167,7 +167,11 @@ fn call(ws: &Path, name: &str, a: &Value) -> (String, bool) {
         "debug_run_to" => { let (f, l) = parse_loc(a["location"].as_str().unwrap_or("")); json!({"cmd": "until", "file": f, "line": l}) }
         "debug_pause" => json!({"cmd": "pause"}),
         "debug_restart" => json!({"cmd": "restart"}),
-        "debug_locals" => json!({"cmd": "vars", "depth": a["depth"].as_i64().unwrap_or(3)}),
+        "debug_locals" => {
+            let full = a["full"].as_bool().unwrap_or(false);
+            let depth = a["depth"].as_i64().unwrap_or(if full { 10 } else { 3 });
+            json!({"cmd": "vars", "depth": depth, "full": full})
+        }
         "debug_eval" => json!({"cmd": "eval", "expr": a["path"].as_str().unwrap_or("")}),
         "debug_set" => json!({"cmd": "set", "path": a["path"].as_str().unwrap_or(""), "value": a["value"].as_str().unwrap_or("")}),
         "debug_backtrace" => json!({"cmd": "bt"}),
