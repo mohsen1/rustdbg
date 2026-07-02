@@ -1,20 +1,42 @@
 # Benchmarks
 
-Do coding agents fix bugs faster / cheaper when they can reach for `rdbg`?
+Do coding agents fix bugs faster / cheaper when they can reach for `rdbg`? Two
+tiers: small planted-bug crates, and real fixed bugs in a large repo.
+
+Runs make real API calls and cost money. The `with` condition needs `rdbg` on
+PATH (`curl -fsSL https://azimi.me/rust-debugger-skill/install.sh | sh`) plus
+`rust-analyzer` and `lldb-dap`.
+
+## Tier 1 — micro (`bench.py`)
 
 Each task is a small Rust crate with a planted bug and a failing test. The
-harness runs an agent (`claude` or `codex`) headless on the same prompt, once
-**without** rdbg and once **with** it (the skill installed and a one-line
-pointer), then records wall time, token usage, and whether `cargo test` passes.
+harness runs an agent headless on the same prompt, once **without** rdbg and once
+**with** it, and records wall time, tokens, and whether `cargo test` passes.
 
 ```sh
 python3 bench.py                                   # all tasks, both agents
 python3 bench.py --agents claude --tasks accumulator --repeat 3
 ```
 
-Runs make real API calls and cost money. The `with` condition needs `rdbg` on
-PATH (`curl -fsSL https://azimi.me/rust-debugger-skill/install.sh | sh`) plus
-`rust-analyzer` and `lldb-dap`.
+## Tier 2 — larger repo, real bugs (`bench_repo.py`)
+
+SWE-bench style, on [tsz](https://github.com/tsz-org/tsz) (a ~500k-line Rust
+TypeScript type-checker). Each case is a merged bug-fix commit that shipped a
+regression test. The harness resets a dedicated worktree to the fix's **parent**
+commit, overlays just the regression test, confirms it is red, then runs the
+agent to re-derive the fix — the merged commit is the ground truth.
+
+```sh
+git -C ~/code/tsz worktree add --detach ~/code/tsz-bench origin/main
+cd ~/code/tsz-bench && cargo build --bin tsz          # warm the cache once
+python3 bench_repo.py --agents claude --cases 10
+```
+
+Cases are mined from git history (behavioral diagnostic / display / narrowing
+fixes with a separable regression test and a small non-test diff) and stored in
+`results-repo/cases.json`. This is where a debugger earns its keep: the build is
+expensive, so replacing rebuild-and-print cycles with one paused inspection
+matters more than on toy crates.
 
 ## Tasks
 
