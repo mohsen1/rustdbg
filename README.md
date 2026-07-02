@@ -142,12 +142,10 @@ paused between an agent's tool calls. State lives in `.rdbg/` — add it to
 ## Roadmap
 
 Every command is one turn for an agent, so the theme is collapsing round-trips.
-`trace`, multi-path `eval`, and `set --then` are the first pass. Next:
+Shipped so far: `trace`, multi-path `eval`, `set --then`, **`rdbg do`** (several
+subcommands in one call), and **delta stops** (each stop shows only the locals
+that *changed* — `~ sum: u32 = 6 (was 3)`). Next:
 
-- **Delta stops** — each stop shows only the locals that *changed* since the last
-  one (`~ sum: u32 = 6 (was 3)`), not the full dump.
-- **`rdbg do 'break x; continue; vars; eval sum'`** — a fixed investigation
-  recipe as one call.
 - **One-shot panic triage** — `rdbg debug --test t --panic` returns the panic
   message, the first user frame with its arguments, and locals in one bundle.
 - **Predicate run-to** — `rdbg continue --until 'sum > 100'`, evaluated
