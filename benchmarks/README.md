@@ -20,8 +20,8 @@ python3 bench.py --agents claude --tasks accumulator --repeat 3
 
 ## Tier 2 — larger repo, real bugs (`bench_repo.py`)
 
-SWE-bench style, on [tsz](https://github.com/tsz-org/tsz) (a ~500k-line Rust
-TypeScript type-checker). Each case is a merged bug-fix commit that shipped a
+SWE-bench style, on [tsz](https://github.com/tsz-org/tsz) (a ~1.7M-line Rust
+TypeScript type-checker, per `cloc`). Each case is a merged bug-fix commit that shipped a
 regression test. The harness resets a dedicated worktree to the fix's **parent**
 commit, overlays just the regression test, confirms it is red, then runs the
 agent to re-derive the fix — the merged commit is the ground truth.
