@@ -305,6 +305,26 @@ fn fmt_stop(stop: &Value) -> String {
     if stop["exited"].as_bool().unwrap_or(false) {
         let mut out = format!(">>> program exited (code {})",
             stop["exit_code"].as_i64().map(|c| c.to_string()).unwrap_or("?".into()));
+        // flag breakpoints that never fired — the #1 confusion when a run exits unexpectedly
+        if let Some(bps) = stop["breakpoints"].as_array() {
+            let notes: Vec<String> = bps.iter().filter_map(|b| {
+                let loc = b["loc"].as_str().unwrap_or("?");
+                let verified = b["verified"].as_bool().unwrap_or(true);
+                let hits = b["hits"].as_u64().unwrap_or(0);
+                if !verified {
+                    Some(format!("  {loc}  — NOT BOUND (name/path unresolved; check spelling, or the symbol may not exist / be inlined)"))
+                } else if hits == 0 {
+                    Some(format!("  {loc}  — bound, 0 hits (never reached on this input)"))
+                } else {
+                    None
+                }
+            }).collect();
+            if !notes.is_empty() {
+                out.push_str("\nbreakpoints that did not fire:\n");
+                out.push_str(&notes.join("\n"));
+                out.push_str("\n(bound-but-0-hits = the code didn't run that line/fn on this input; the value may be produced by a different path — try another break location.)");
+            }
+        }
         if let Some(o) = stop["output"].as_str() {
             if !o.is_empty() {
                 out.push_str(&format!("\n--- program output ---\n{}", o.trim_end()));

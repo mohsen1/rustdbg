@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- When a run ends in program exit, `launch` / `continue` / `do` now report which
+  breakpoints **did not fire** — distinguishing `NOT BOUND` (the name/path didn't
+  resolve) from `bound, 0 hits` (the code never ran that line/fn on this input).
+  Previously an unhit breakpoint just showed a silent `program exited`, which
+  repeatedly led agents to assume a function "isn't called" (or the build is
+  "optimized/inlined") and fall back to `eprintln`. Function breakpoints now track
+  their bind status, and each breakpoint tracks a hit count.
 - Global `--json` flag: pass it anywhere in the args and every command prints
   its result as one compact JSON line (the daemon's own response) instead of
   the human text rendering. `launch`/`trace` emit the stop/trace payload or the

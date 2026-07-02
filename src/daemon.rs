@@ -132,10 +132,12 @@ impl Daemon {
     /// Summary of a fresh stop; drops the session and captures output on exit.
     fn stop_summary(&mut self, stop: Stop) -> Value {
         if stop.exited {
-            let out: String = self.session.as_ref().map(|s| s.output.concat()).unwrap_or_default();
+            let (out, bps): (String, Value) = self.session.as_ref()
+                .map(|s| (s.output.concat(), json!(s.bp_summary())))
+                .unwrap_or_default();
             self.session = None;
             let tail = if out.len() > 2000 { out[out.len() - 2000..].to_string() } else { out };
-            return json!({"exited": true, "exit_code": stop.exit_code, "output": tail});
+            return json!({"exited": true, "exit_code": stop.exit_code, "output": tail, "breakpoints": bps});
         }
         // snapshot + diff the top-frame locals before borrowing immutably to summarize
         let delta = self.session.as_mut().map(|s| s.locals_delta()).unwrap_or_default();

@@ -25,6 +25,7 @@ pub struct LineBp {
     pub log: Option<String>,
     pub enabled: bool,
     pub verified: bool,
+    pub hits: u32,
 }
 
 #[derive(Clone)]
@@ -32,6 +33,8 @@ pub struct FnBp {
     pub id: i64,
     pub name: String,
     pub enabled: bool,
+    pub verified: bool,
+    pub hits: u32,
 }
 
 #[derive(Clone)]
@@ -208,13 +211,19 @@ impl Session {
         }).unwrap_or_default()
     }
 
-    fn sync_fn(&self) {
-        let mut names: Vec<String> = self.fn_bps.iter().filter(|b| b.enabled).map(|b| b.name.clone()).collect();
+    fn sync_fn(&mut self) {
+        let enabled: Vec<usize> = self.fn_bps.iter().enumerate().filter(|(_, b)| b.enabled).map(|(i, _)| i).collect();
+        let mut wire: Vec<Value> = enabled.iter().map(|&i| json!({"name": self.fn_bps[i].name})).collect();
         if self.panic {
-            names.extend(PANIC_SYMBOLS.iter().map(|s| s.to_string()));
+            wire.extend(PANIC_SYMBOLS.iter().map(|s| json!({"name": s})));
         }
-        let wire: Vec<Value> = names.iter().map(|n| json!({"name": n})).collect();
-        let _ = self.dap.request_soft("setFunctionBreakpoints", json!({"breakpoints": wire}), T);
+        let resp = self.dap.request_soft("setFunctionBreakpoints", json!({"breakpoints": wire}), T);
+        // record whether each function breakpoint actually bound (response is in wire order)
+        if let Some(arr) = resp["body"]["breakpoints"].as_array() {
+            for (pos, &i) in enabled.iter().enumerate() {
+                self.fn_bps[i].verified = arr.get(pos).and_then(|b| b["verified"].as_bool()).unwrap_or(false);
+            }
+        }
     }
 
     fn sync_data(&self) {
@@ -226,7 +235,7 @@ impl Session {
         let ap = abs(path);
         let id = self.next_id();
         self.line_bps.entry(ap.clone()).or_default().push(LineBp {
-            id, line, condition, hit, log, enabled: true, verified: true,
+            id, line, condition, hit, log, enabled: true, verified: true, hits: 0,
         });
         let mut verified = true;
         if self.configured {
@@ -244,7 +253,7 @@ impl Session {
 
     pub fn add_fn_bp(&mut self, name: &str) -> i64 {
         let id = self.next_id();
-        self.fn_bps.push(FnBp { id, name: name.to_string(), enabled: true });
+        self.fn_bps.push(FnBp { id, name: name.to_string(), enabled: true, verified: false, hits: 0 });
         if self.configured {
             self.sync_fn();
         }
@@ -418,6 +427,9 @@ impl Session {
                     self.refresh_threads();
                     let reason = ev["body"]["reason"].as_str().unwrap_or("stopped").to_string();
                     let stop = self.build_stop(&reason);
+                    if reason == "breakpoint" || reason == "function breakpoint" {
+                        self.count_hit(&stop);
+                    }
                     self.last_stop = Some(stop.clone());
                     return Ok(stop);
                 }
@@ -447,6 +459,43 @@ impl Session {
     fn build_stop(&self, reason: &str) -> Stop {
         let tid = self.cur_thread.unwrap_or(0);
         Stop { reason: reason.into(), thread_id: tid, frames: self.frames(tid), exited: false, exit_code: None }
+    }
+
+    /// Credit a breakpoint hit to the matching user breakpoint (by the stopped frame),
+    /// so an exit summary can report which breakpoints actually fired.
+    fn count_hit(&mut self, stop: &Stop) {
+        let Some(f) = stop.top() else { return };
+        let (name, file, line) = (f.name.clone(), f.file.clone(), f.line);
+        for fb in self.fn_bps.iter_mut() {
+            if name.contains(&fb.name) {
+                fb.hits += 1;
+            }
+        }
+        for (path, bps) in self.line_bps.iter_mut() {
+            if path.ends_with(&file) {
+                for b in bps.iter_mut() {
+                    if b.line == line {
+                        b.hits += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Per-breakpoint bind status + hit count — surfaced when a run ends so the
+    /// agent can tell "bound but never reached" from "could not resolve".
+    pub fn bp_summary(&self) -> Vec<Value> {
+        let mut v = vec![];
+        for fb in &self.fn_bps {
+            v.push(json!({"loc": format!("fn {}", fb.name), "verified": fb.verified, "hits": fb.hits}));
+        }
+        for (path, bps) in &self.line_bps {
+            let file = path.rsplit('/').next().unwrap_or(path);
+            for b in bps {
+                v.push(json!({"loc": format!("{}:{}", file, b.line), "verified": b.verified, "hits": b.hits}));
+            }
+        }
+        v
     }
 
     pub fn run(&mut self) -> Result<Stop, String> {
