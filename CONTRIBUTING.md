@@ -1,15 +1,15 @@
 # Contributing
 
-Thanks for your interest! rustdbg is a small, dependency-free Python package.
+`rdbg` is a single Rust binary. `serde_json` is the only runtime dependency.
 
-- **Run it locally without installing:** `PYTHONPATH=src python3 -m rustdbg.cli --help`
-- **Package layout:** `src/rustdbg/` — `dap.py` (DAP transport), `session.py`
-  (the debug session + breakpoint model), `lsp.py` (rust-analyzer navigation),
-  `daemon.py` (per-project server), `cli.py` (the `rdbg` CLI), `mcp.py` (the MCP
-  server). All standard library.
-- **Capabilities are verified, not assumed.** If you add a feature that depends
-  on the debug adapter, probe the real adapter first and record what works in
-  `docs/DESIGN.md`.
-- **Style:** keep it stdlib-only and small; match the surrounding code.
+- Build and test: `cargo build --release` and `cargo test`.
+- Layout under `src/`: `dap.rs` (Debug Adapter Protocol client), `lsp.rs`
+  (rust-analyzer client), `session.rs` (the debug session and breakpoint model),
+  `daemon.rs` (per-project socket server), `client.rs` (the `rdbg` CLI),
+  `mcp.rs` (the MCP server), `render.rs` and `util.rs` (helpers).
+- One binary, three roles picked from the first argument: the CLI (default),
+  the daemon (`__daemon`), and the MCP server (`mcp`).
+- `docker/` builds a Debian image and runs a debug session, for reproducing the
+  Linux setup.
 
-Please open an issue to discuss larger changes before a PR.
+Open an issue before a large change.

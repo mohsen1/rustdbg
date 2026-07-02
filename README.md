@@ -1,130 +1,140 @@
-# rustdbg
+# `rdbg`
 
-**IDE-grade Rust debugging for coding agents.** Give Claude Code, Codex, or any
-MCP client the ability to set breakpoints, run, and read (and change) the *real
-runtime values* of variables — instead of guessing from `println!`/`dbg!` and
-recompiling.
+**Debug a Rust program from a coding agent — set breakpoints, run, and read the
+actual values of variables instead of guessing from `println!`.** A single
+binary that wraps `rust-analyzer` and `lldb-dap`, usable as a CLI skill or an MCP
+server for Claude Code and Codex.
 
-Built on the tools you already have — [`rust-analyzer`](https://rust-analyzer.github.io/)
-and `lldb-dap` — with **zero Python dependencies**. Ships as both a **skill**
-(the `rdbg` CLI) and an **MCP server**.
-
+```sh
+curl -fsSL https://azimi.me/rust-debugger-skill/install.sh | sh
 ```
-$ rdbg launch --cargo . --bin app --break src/config.rs:88 -- --threads 4
->>> STOP [breakpoint] app::parse_config  config.rs:88  (thread 1)
-    ->    88 |     let cfg = Config::from(&raw);
+
+```console
+$ rdbg launch --cargo examples/demo --bin demo --break src/main.rs:12
+>>> STOP [breakpoint] demo::total  main.rs:12  (thread 1)
+   ->    12 |         sum += it.qty;
 $ rdbg vars
-  cfg: Config
-    threads: usize = 4
-    paths: Vec<PathBuf> (size=2) = [...]
-$ rdbg eval cfg.threads          # usize = 4   -- the actual runtime value
-$ rdbg set cfg.threads = 8       # change it live
-$ rdbg step over ; rdbg continue
+  items: &[Item]
+    [0]: Item
+      name: String = "apple"
+      qty: unsigned int = 3
+  sum: unsigned int = 0
+$ rdbg eval items[0].qty      # unsigned int = 3
+$ rdbg set sum = 100          # change a variable, keep running
+$ rdbg step over
 ```
 
-## Why
+By default:
 
-Static analysis (rust-analyzer) tells an agent what a symbol *is*. rustdbg adds
-the missing half: what it *holds at runtime*. Break where a value is wrong, read
-the actual `Vec`/`String`/struct/enum, step to watch it change, or break exactly
-where a panic is raised — the editor debugging loop, driven from an agent's
-stateless tool calls.
+- Breakpoints can be line, function, conditional (`--if`), hit-count (`--hit`),
+  logpoint (`--log`), panic, or watchpoint (break when a value changes).
+- Locals print as real Rust values — `Vec`, `String`, structs, and enums render
+  readably, not as raw pointers.
+- One paused process per project is held open between calls, so state survives
+  across commands; the daemon shuts down after 30 minutes idle.
+- `rust-analyzer` navigation (`where` / `def` / `hover` / `refs`) works
+  alongside the live session.
 
-## Features
+## Why?
 
-- **Breakpoints:** line, function, conditional (`--if`), hit-count (`--hit`),
-  logpoint (`--log`), **panic** (break where a Rust panic is raised), and
-  **watchpoints** (break when a value changes).
-- **Run control:** continue, step over / in / out / instruction, run-to-line,
-  pause a running program, restart.
-- **Inspect & mutate:** locals with readable Rust values, evaluate variable
-  paths (`items[0].qty`), **set a variable's value live**, watch expressions.
-- **Navigate (rust-analyzer):** where / definition / hover / references.
-- **Threads & frames:** list/switch threads, select stack frames.
+An agent editing Rust can read the source but not the run. It sees that
+`parse_config` exists; it can't see that `threads` came back `0`. The usual
+workaround is to add `println!`, rebuild, read the log, and delete it — a slow
+loop that only shows what you thought to print.
 
-See [`docs/DESIGN.md`](docs/DESIGN.md) for exactly what the debug adapter does and
-does not support, verified against the real adapter.
-
-## Requirements
-
-- Python 3.9+ (standard library only)
-- `rust-analyzer` — `rustup component add rust-analyzer`
-- A DAP debug adapter: **`lldb-dap`** (ships with the Xcode command line tools on
-  macOS, or LLVM on Linux: `apt install lldb` / `brew install llvm`). Optional:
-  put [`codelldb`](https://github.com/vadimcn/codelldb) on `PATH` (auto-detected)
-  for full Rust expression evaluation.
-- A Rust project built with debug info (the default `cargo build`).
+`rdbg` gives the agent the other half: break where a value is computed, read the
+real inputs, step to watch it go wrong, and change a variable in place to test a
+fix. Break on a panic to land on the frame that raised it, with its arguments.
+Watch a variable to stop the instant it changes.
 
 ## Install
 
-Straight from the repo (works today):
-
-```bash
-pip install "git+https://github.com/mohsen1/rustdbg"     # provides rdbg + rustdbg-mcp
+```sh
+curl -fsSL https://azimi.me/rust-debugger-skill/install.sh | sh
 ```
 
-Once published to PyPI:
+Or with Cargo:
 
-```bash
-pip install rustdbg
+```sh
+cargo install --git https://github.com/mohsen1/rust-debugger-skill
 ```
 
-Or run from a clone with no install: `PYTHONPATH=src python3 -m rustdbg.cli --help`.
+It needs two things on `PATH`:
+
+- `rust-analyzer` — `rustup component add rust-analyzer`
+- `lldb-dap` — from the Xcode command line tools on macOS, or `apt install lldb`
+  / `brew install llvm` on Linux. `codelldb`, if present, is preferred and adds
+  full Rust expression evaluation.
+
+Build the program you want to debug with debug info (the default `cargo build`).
+
+## Use it as a skill
+
+`rdbg` is the whole interface. Drop [`skill/rust-debugger`](skill/rust-debugger/SKILL.md)
+into `.claude/skills/` (or `.agents/skills/` for Codex) and the agent drives the
+CLI directly. Run `rdbg` with no arguments for the full command list.
+
+```sh
+rdbg where parse_config                              # find where to break
+rdbg launch --cargo . --bin app --break src/x.rs:88  # build and run to it
+rdbg vars ; rdbg eval cfg.threads ; rdbg step over
+rdbg break --panic                                   # stop where a panic fires
+rdbg watch cfg.threads                               # stop when it changes
+```
 
 ## Use it as an MCP server
 
-Exposes ~24 tools (`debug_launch`, `debug_add_breakpoint`, `debug_step`,
-`debug_locals`, `debug_eval`, `debug_set`, `debug_where`, ...).
+The same binary runs an MCP server (`rdbg mcp`) exposing 24 tools —
+`debug_launch`, `debug_step`, `debug_locals`, `debug_eval`, `debug_set`,
+`debug_where`, and the rest.
 
-**Claude Code** — add to `.mcp.json` in your project (or run
-`claude mcp add rustdbg -- rustdbg-mcp`):
+Claude Code — `.mcp.json` in your project, or `claude mcp add rustdbg -- rdbg mcp`:
 
 ```json
-{
-  "mcpServers": {
-    "rustdbg": { "command": "rustdbg-mcp" }
-  }
-}
+{ "mcpServers": { "rustdbg": { "command": "rdbg", "args": ["mcp"] } } }
 ```
 
-**Codex** — add to `~/.codex/config.toml`:
+Codex — `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.rustdbg]
-command = "rustdbg-mcp"
+command = "rdbg"
+args = ["mcp"]
 ```
 
-The server discovers your project from the directory it is launched in (its git
-root) and manages the debug session per project.
-
-## Use it as a skill (CLI)
-
-`rdbg` is a small, stateful CLI; a companion skill for Claude Code / Codex lives
-in [`skill/rustdbg/`](skill/rustdbg/SKILL.md). Drop it into `.claude/skills/` (or
-`.agents/skills/`) after `pip install rustdbg`, and the agent will use `rdbg`
-directly. Full command reference: `rdbg` with no args, or the SKILL.
+The server picks up the project from the directory it starts in.
 
 ## How it works
 
-A per-project background daemon holds one paused debuggee (an `lldb-dap` session
-with the Rust value formatters loaded) plus a warm `rust-analyzer` for
-navigation, and serves commands over a Unix socket. The CLI and the MCP server
-are both thin clients of that daemon — so a breakpoint set in one call is still
-there in the next, and the process stays paused between an agent's tool calls.
-The daemon auto-stops after 30 minutes idle. State lives in `.rustdbg/`
-(git-ignore it).
+A per-project daemon holds one paused `lldb-dap` session (with the Rust value
+formatters loaded) and a warm `rust-analyzer`, and serves commands over a Unix
+socket. The CLI and the MCP server are both thin clients of that daemon, so a
+breakpoint set in one call is still there in the next and the program stays
+paused between an agent's tool calls. State lives in `.rdbg/` — add it to
+`.gitignore`.
 
-## Limitations (honest, and mostly the adapter's)
+## Limitations
 
-- Apple's `lldb-dap` evaluates variable **paths** and simple primitive
-  comparisons, not arbitrary Rust expressions (`a + b`, method calls). `codelldb`
-  on `PATH` lifts this.
-- No set-next-statement / reverse debugging; native restart is emulated by
-  relaunch (watchpoints are re-added, not carried over).
-- On macOS the worker-thread *list* at a breakpoint can be partial; the stopped
-  thread is always usable.
+- `eval`, `set`, and breakpoint conditions take variable paths and simple
+  primitive comparisons, not arbitrary Rust expressions. `codelldb` on `PATH`
+  lifts this.
+- There is no set-next-statement or reverse debugging; `restart` relaunches the
+  program.
+- Threads stop together. On macOS the worker-thread list at a breakpoint can be
+  partial; the stopped thread is always usable.
+- Rust value rendering is best on recent `lldb` / `codelldb`; older `lldb`
+  (14) shows some containers as raw fields.
+
+## Build
+
+```sh
+cargo build --release      # target/release/rdbg
+cargo test
+```
+
+`docker/` has a Debian image that builds `rdbg` and runs a debug session, for
+reproducing the Linux setup.
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
-option.
+MIT or Apache-2.0, at your option.

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rdbg — Rust debugging for coding agents</title>
+<meta name="description" content="IDE-grade Rust debugging for Claude Code and Codex — a skill and an MCP server, built on rust-analyzer and lldb-dap.">
+<style>
+  :root { color-scheme: dark; }
+  body { background: #0d1117; color: #c9d1d9; font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         max-width: 720px; margin: 0 auto; padding: 3rem 1.25rem; }
+  h1 { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.9rem; margin: 0 0 .25rem; }
+  h1 .b { color: #58a6ff; }
+  p.lead { font-size: 1.15rem; color: #adbac7; margin-top: 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; overflow-x: auto; }
+  pre.install { font-size: 1.05rem; }
+  .c { color: #8b949e; }
+  a { color: #58a6ff; }
+  h2 { font-size: 1.15rem; margin-top: 2.25rem; border-bottom: 1px solid #21262d; padding-bottom: .3rem; }
+  ul { padding-left: 1.2rem; }
+  footer { margin-top: 3rem; color: #8b949e; font-size: .9rem; }
+</style>
+</head>
+<body>
+  <h1><span class="b">rdbg</span></h1>
+  <p class="lead">IDE-grade Rust debugging for coding agents. Set breakpoints, run,
+  and read the real runtime values of variables — instead of guessing from
+  <code>println!</code> and recompiling.</p>
+
+  <pre class="install"><span class="c"># macOS and Linux</span>
+curl -fsSL https://azimi.me/rust-debugger-skill/install.sh | sh</pre>
+
+  <p>It also needs <code>rust-analyzer</code>
+  (<code>rustup component add rust-analyzer</code>) and <code>lldb-dap</code>.</p>
+
+  <h2>What it does</h2>
+  <ul>
+    <li>Breakpoints: line, function, conditional, hit-count, logpoint, <b>panic</b>, and watchpoints.</li>
+    <li>Step over / in / out, run-to-line, pause, restart.</li>
+    <li>Read locals as real Rust values, evaluate paths, and <b>change a variable live</b>.</li>
+    <li>Jump to definition, hover, and find references via rust-analyzer.</li>
+  </ul>
+
+  <h2>Use it</h2>
+  <p>As a skill (the <code>rdbg</code> CLI) or as an MCP server (<code>rdbg mcp</code>)
+  in Claude Code and Codex. See the
+  <a href="https://github.com/mohsen1/rust-debugger-skill">README</a>.</p>
+
+  <footer>
+    <a href="https://github.com/mohsen1/rust-debugger-skill">github.com/mohsen1/rust-debugger-skill</a>
+    · MIT / Apache-2.0
+  </footer>
+</body>
+</html>
