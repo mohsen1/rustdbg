@@ -6,3 +6,6 @@
 benchmarks/results/
 benchmarks/results-repo/runs.json
 benchmarks/results-repo/work/
+benchmarks/results-repo/transcripts/
+
+benchmarks/results-adopt/
