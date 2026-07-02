@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 BENCH = Path(__file__).resolve().parent.parent
-TASK = BENCH / "tasks" / "accumulator"
+TASK = BENCH / "tasks" / (sys.argv[3] if len(sys.argv) > 3 else "accumulator")
 SKILL = BENCH.parent / "skill" / "rust-debugger" / "SKILL.md"
 OUT = BENCH / "results-adopt"
 
@@ -58,7 +58,7 @@ PROMPT = ("The test in this Rust crate fails (`cargo test`). Find the root cause
 def main() -> None:
     cond, idx = sys.argv[1], sys.argv[2]
     OUT.mkdir(exist_ok=True)
-    work = OUT / f"{cond}-{idx}"
+    work = OUT / f"{TASK.name}-{cond}-{idx}"
     if work.exists():
         shutil.rmtree(work)
     shutil.copytree(TASK, work)

@@ -38,3 +38,40 @@ selectively: when the bug is runtime-opaque or the agent is stuck in a
 non-converging read loop. rdbg's value is real but conditional on the bug
 actually needing runtime state; a passive "skill available" note yields 0 use, so
 adoption needs an opinionated skill/hook, tuned to fire when it will pay off.
+
+## The ROI test — does rdbg pay off on a *hard* bug?
+
+A runtime-opaque bug (RPN calculator, swapped operands on non-commutative ops —
+the wrong final value doesn't point at the fault). 10 runs, Opus, medium effort:
+
+| | strong | control |
+|---|---|---|
+| used rdbg | 4/5 | 0/5 |
+| passed | 5/5 | 5/5 |
+| mean tokens | 278k | 153k (**1.82x cheaper**) |
+| mean wall | 52.5s | 25.7s |
+
+Even here rdbg did **not** pay off: the plain read loop matched its perfect pass
+rate at ~half the tokens and half the wall. The penalty did shrink vs the easy
+bug (2.85x → 1.82x), so rdbg is *relatively* less wasteful as bugs get harder —
+but it never crosses into positive. Telling: the one strong run that skipped
+rdbg was the cheapest strong run and matched control, while the four that used it
+averaged ~310k tokens — invoking the debugger itself roughly doubled cost with no
+upside.
+
+## Bottom line
+
+1. **Adoption is fully controllable by prompting** (0% → ~100% with a forceful
+   CLAUDE.md). The Read/Grep/Run bias is a default, not a wall.
+2. **But at small/medium Rust scale, a debugger is a net cost for autonomous
+   agents** — Opus reads code well enough that reading is cheaper and equally
+   reliable. Forcing rdbg adds 1.8–2.9x tokens for no correctness gain.
+3. **The gap narrows with difficulty**, which points at where rdbg *should* win:
+   situations reading genuinely can't resolve — panics with unclear cause,
+   data/concurrency-dependent heisenbugs, or very large codebases where reading is
+   expensive — plus human and confirmation use (the #15366 fix). Not everyday
+   small-crate bugs.
+4. **Product implication:** don't mandate rdbg. Availability alone yields ~0% use;
+   a blanket mandate wastes tokens. The only justified path is a *selective*
+   trigger that fires when a read loop is actually failing — and the bar to beat
+   "just re-read the code" is high.
