@@ -46,6 +46,10 @@ INSPECT / MUTATE
   rdbg watch-expr add|rm <path>
   rdbg list [--radius N] | bt | state
 
+BATCH (one call instead of several)
+  rdbg do 'break f.rs:L; continue; vars; eval sum; bt'
+    run several subcommands in order, labeled; stops on the first error/exit
+
 NAVIGATE (rust-analyzer)
   rdbg where <Name>
   rdbg def|hover|refs <file> <line> <col>
@@ -142,15 +146,21 @@ pub fn cargo_build(dir: &Path, bin: Option<&str>, test: Option<&str>) -> PathBuf
 }
 
 fn parse_bp(spec: &str, base: &Path) -> (String, i64) {
-    let Some((f, l)) = spec.rsplit_once(':') else {
-        eprintln!("bad breakpoint {spec:?} (want file.rs:line)");
-        std::process::exit(2);
-    };
-    let line: i64 = l.parse().unwrap_or_else(|_| { eprintln!("bad line in {spec:?}"); std::process::exit(2); });
+    match parse_bp_soft(spec, base) {
+        Ok(bp) => bp,
+        Err(e) => { eprintln!("{e}"); std::process::exit(2); }
+    }
+}
+
+/// Like `parse_bp`, but returns an error instead of exiting the process — used
+/// by `run_command`, which the MCP server and `do` drive (never exit there).
+fn parse_bp_soft(spec: &str, base: &Path) -> Result<(String, i64), String> {
+    let (f, l) = spec.rsplit_once(':').ok_or_else(|| format!("bad breakpoint {spec:?} (want file.rs:line)"))?;
+    let line: i64 = l.parse().map_err(|_| format!("bad line in {spec:?}"))?;
     let p = Path::new(f);
     let abs = if p.is_absolute() { p.to_path_buf() } else { base.join(f) };
     let abs = abs.canonicalize().unwrap_or(abs);
-    (abs.to_string_lossy().to_string(), line)
+    Ok((abs.to_string_lossy().to_string(), line))
 }
 
 fn opt<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
@@ -171,40 +181,43 @@ fn opt_multi(args: &[String], flag: &str) -> Option<String> {
     if toks.is_empty() { None } else { Some(toks.join(" ")) }
 }
 
-fn print_stop(stop: &Value) {
+/// Render a stop summary as text (returned, not printed — callers `println!` it,
+/// or thread it through `do` / MCP).
+fn fmt_stop(stop: &Value) -> String {
     if stop.is_null() {
-        println!("(no stop — not paused)");
-        return;
+        return "(no stop — not paused)".to_string();
     }
     if stop["exited"].as_bool().unwrap_or(false) {
-        println!(">>> program exited (code {})", stop["exit_code"].as_i64().map(|c| c.to_string()).unwrap_or("?".into()));
+        let mut out = format!(">>> program exited (code {})",
+            stop["exit_code"].as_i64().map(|c| c.to_string()).unwrap_or("?".into()));
         if let Some(o) = stop["output"].as_str() {
             if !o.is_empty() {
-                println!("--- program output ---\n{}", o.trim_end());
+                out.push_str(&format!("\n--- program output ---\n{}", o.trim_end()));
             }
         }
-        return;
+        return out;
     }
-    println!(">>> STOP [{}] {}  (thread {})",
+    let mut lines = vec![format!(">>> STOP [{}] {}  (thread {})",
         stop["reason"].as_str().unwrap_or("?"), stop["frame"].as_str().unwrap_or("?"),
-        stop["thread"].as_i64().unwrap_or(0));
+        stop["thread"].as_i64().unwrap_or(0))];
     if let Some(src) = stop["source"].as_str() {
         if !src.is_empty() {
-            println!("{src}");
+            lines.push(src.to_string());
         }
     }
     if let Some(w) = stop["watches"].as_str() {
         if !w.is_empty() {
-            println!("watches:\n{w}");
+            lines.push(format!("watches:\n{w}"));
         }
     }
+    lines.join("\n")
 }
 
-fn print_result_stop(r: Option<Value>) {
+fn fmt_result_stop(r: Option<Value>) -> String {
     match r {
-        Some(v) if v["ok"].as_bool().unwrap_or(false) => print_stop(&v["stop"]),
-        Some(v) => println!("error: {}", v["error"].as_str().unwrap_or("unknown")),
-        None => println!("error: daemon did not respond"),
+        Some(v) if v["ok"].as_bool().unwrap_or(false) => fmt_stop(&v["stop"]),
+        Some(v) => format!("error: {}", v["error"].as_str().unwrap_or("unknown")),
+        None => "error: daemon did not respond".to_string(),
     }
 }
 
@@ -228,57 +241,79 @@ pub fn main(args: &[String]) -> i32 {
         return 0;
     }
     ensure_daemon(&ws);
-    let r = |p: Value| request(&ws, &p, Duration::from_secs(300));
 
     match cmd {
-        "status" => println!("{}", serde_json::to_string_pretty(&r(json!({"cmd": "status"})).unwrap_or(Value::Null)).unwrap()),
-        "launch" => return do_launch(&ws, rest, false),
-        "trace" => return do_launch(&ws, rest, true),
+        "launch" => do_launch(&ws, rest, false),
+        "trace" => do_launch(&ws, rest, true),
+        "do" => {
+            // run several subcommands in one call: `rdbg do 'break f:L; continue; vars'`
+            let (text, had_error) = run_batch(&ws, &rest.join(" "));
+            print!("{text}");
+            if had_error { 1 } else { 0 }
+        }
+        _ => {
+            let out = run_command(&ws, cmd, rest);
+            println!("{out}");
+            if out == USAGE { 2 } else { 0 }
+        }
+    }
+}
+
+/// Run one subcommand against the daemon and return its rendered text (instead
+/// of printing it inline). `main` prints this; `do` and the MCP `debug_do` tool
+/// collect it. Never exits the process — safe to call from the MCP server.
+fn run_command(ws: &Path, cmd: &str, rest: &[String]) -> String {
+    let r = |p: Value| request(ws, &p, Duration::from_secs(300));
+    let cwd = std::env::current_dir().unwrap_or_default();
+    match cmd {
+        "status" => serde_json::to_string_pretty(&r(json!({"cmd": "status"})).unwrap_or(Value::Null)).unwrap(),
         "break" => {
             if rest.iter().any(|a| a == "--fn") {
                 let resp = r(json!({"cmd": "bp_fn", "name": opt(rest, "--fn").unwrap_or("")}));
-                println!("{}", resp.map(|v| format!("fn breakpoint [{}]", v["id"])).unwrap_or_else(|| "error".into()));
+                resp.map(|v| format!("fn breakpoint [{}]", v["id"])).unwrap_or_else(|| "error".into())
             } else if rest.iter().any(|a| a == "--panic") {
                 r(json!({"cmd": "bp_panic"}));
-                println!("panic breakpoint [panic] set (breaks where a Rust panic is raised)");
+                "panic breakpoint [panic] set (breaks where a Rust panic is raised)".to_string()
             } else {
-                let (f, l) = parse_bp(&rest[0], &std::env::current_dir().unwrap());
+                let Some(spec) = rest.first() else { return "error: break needs file.rs:line".to_string() };
+                let (f, l) = match parse_bp_soft(spec, &cwd) { Ok(v) => v, Err(e) => return format!("error: {e}") };
                 let hit = opt(rest, "--hit").and_then(|h| h.parse::<i64>().ok());
                 let resp = r(json!({"cmd": "bp_add", "file": f, "line": l,
                     "condition": opt_multi(rest, "--if"), "hit": hit, "log": opt_multi(rest, "--log")}));
                 match resp {
                     Some(v) if v["ok"].as_bool().unwrap_or(false) => {
                         let warn = if v["verified"].as_bool().unwrap_or(true) { "" } else { "  (UNVERIFIED — no code at that line?)" };
-                        println!("breakpoint [{}] {}{}", v["id"], rest[0], warn);
+                        format!("breakpoint [{}] {}{}", v["id"], spec, warn)
                     }
-                    _ => println!("error setting breakpoint"),
+                    _ => "error setting breakpoint".to_string(),
                 }
             }
         }
         "watch" => {
-            let resp = r(json!({"cmd": "bp_watch", "var": rest.first().cloned().unwrap_or_default()}));
-            match resp {
-                Some(v) if v["ok"].as_bool().unwrap_or(false) => println!("watchpoint [{}] on {} (breaks when it changes)", v["id"], rest[0]),
-                Some(v) => println!("error: {}", v["error"].as_str().unwrap_or("unknown")),
-                None => println!("error: daemon did not respond"),
+            let Some(var) = rest.first().cloned() else { return "error: watch needs a variable".to_string() };
+            match r(json!({"cmd": "bp_watch", "var": var})) {
+                Some(v) if v["ok"].as_bool().unwrap_or(false) => format!("watchpoint [{}] on {} (breaks when it changes)", v["id"], var),
+                Some(v) => format!("error: {}", v["error"].as_str().unwrap_or("unknown")),
+                None => "error: daemon did not respond".to_string(),
             }
         }
-        "breaks" => print_field(r(json!({"cmd": "bp_list"})), "breakpoints"),
-        "break-rm" => { r(json!({"cmd": "bp_rm", "id": rest.first().cloned().unwrap_or_default()})); println!("ok"); }
+        "breaks" => fmt_field(r(json!({"cmd": "bp_list"})), "breakpoints"),
+        "break-rm" => { r(json!({"cmd": "bp_rm", "id": rest.first().cloned().unwrap_or_default()})); "ok".to_string() }
         "break-on" | "break-off" => {
             r(json!({"cmd": "bp_enable", "id": rest.first().cloned().unwrap_or_default(), "enabled": cmd == "break-on"}));
-            println!("ok");
+            "ok".to_string()
         }
-        "run" | "continue" => print_result_stop(r(json!({"cmd": "continue"}))),
-        "step" => print_result_stop(r(json!({"cmd": "step", "kind": rest.first().map(|s| s.as_str()).unwrap_or("over")}))),
+        "run" | "continue" => fmt_result_stop(r(json!({"cmd": "continue"}))),
+        "step" => fmt_result_stop(r(json!({"cmd": "step", "kind": rest.first().map(|s| s.as_str()).unwrap_or("over")}))),
         "until" => {
-            let (f, l) = parse_bp(&rest[0], &std::env::current_dir().unwrap());
-            print_result_stop(r(json!({"cmd": "until", "file": f, "line": l})));
+            let Some(spec) = rest.first() else { return "error: until needs file.rs:line".to_string() };
+            let (f, l) = match parse_bp_soft(spec, &cwd) { Ok(v) => v, Err(e) => return format!("error: {e}") };
+            fmt_result_stop(r(json!({"cmd": "until", "file": f, "line": l})))
         }
-        "pause" => print_result_stop(r(json!({"cmd": "pause"}))),
-        "restart" => print_result_stop(r(json!({"cmd": "restart"}))),
-        "threads" => print_field(r(json!({"cmd": "threads"})), "threads"),
-        "thread" => print_result_stop(r(json!({"cmd": "thread", "id": rest.first().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0)}))),
+        "pause" => fmt_result_stop(r(json!({"cmd": "pause"}))),
+        "restart" => fmt_result_stop(r(json!({"cmd": "restart"}))),
+        "threads" => fmt_field(r(json!({"cmd": "threads"})), "threads"),
+        "thread" => fmt_result_stop(r(json!({"cmd": "thread", "id": rest.first().and_then(|s| s.parse::<i64>().ok()).unwrap_or(0)}))),
         "frame" | "up" | "down" => {
             let payload = if cmd == "up" || cmd == "down" {
                 json!({"cmd": "frame", "dir": cmd})
@@ -287,101 +322,138 @@ pub fn main(args: &[String]) -> i32 {
             };
             match r(payload) {
                 Some(v) if v["ok"].as_bool().unwrap_or(false) => {
-                    if let Some(src) = v["source"].as_str() { println!("{src}"); }
-                    println!("locals:");
-                    if let Some(vars) = v["vars"].as_str() { println!("{vars}"); }
+                    let mut lines = vec![];
+                    if let Some(src) = v["source"].as_str() { lines.push(src.to_string()); }
+                    lines.push("locals:".to_string());
+                    if let Some(vars) = v["vars"].as_str() { lines.push(vars.to_string()); }
+                    lines.join("\n")
                 }
-                _ => println!("no such frame"),
+                _ => "no such frame".to_string(),
             }
         }
         "vars" => {
             let depth = opt(rest, "--depth").and_then(|d| d.parse::<i64>().ok()).unwrap_or(3);
-            print_field(r(json!({"cmd": "vars", "depth": depth})), "vars");
+            fmt_field(r(json!({"cmd": "vars", "depth": depth})), "vars")
         }
         "eval" => {
             // evaluate one or more variable paths in a single agent call
+            let mut out = vec![];
             for path in rest.iter().filter(|p| !p.starts_with("--")) {
                 let v = r(json!({"cmd": "eval", "expr": path}));
                 let val = v.as_ref().filter(|v| v["ok"].as_bool().unwrap_or(false))
                     .map(|v| v["value"].as_str().unwrap_or("").to_string())
                     .unwrap_or_else(|| "error".into());
-                println!("{path} = {val}");
+                out.push(format!("{path} = {val}"));
             }
+            out.join("\n")
         }
         "set" => {
             // rdbg set <path> = <value> [--then continue|step]   (test a fix live)
             let then = rest.iter().position(|a| a == "--then");
             let body: Vec<String> = rest.iter().take(then.unwrap_or(rest.len())).cloned().collect();
+            if body.is_empty() { return "error: set needs <path> = <value>".to_string(); }
             let joined = body.join(" ");
             let (path, value) = match joined.split_once('=') {
                 Some((p, v)) => (p.trim().to_string(), v.trim().to_string()),
-                None => (body.first().cloned().unwrap_or_default(), body[1..].join(" ")),
+                None => (body[0].clone(), body[1..].join(" ")),
             };
-            print_field(r(json!({"cmd": "set", "path": path, "value": value})), "value");
+            let mut out = vec![fmt_field(r(json!({"cmd": "set", "path": path, "value": value})), "value")];
             if let Some(i) = then {
                 let after = rest.get(i + 1).map(|s| s.as_str()).unwrap_or("continue");
-                print_result_stop(if after == "step" { r(json!({"cmd": "step", "kind": "over"})) } else { r(json!({"cmd": "continue"})) });
+                out.push(fmt_result_stop(if after == "step" { r(json!({"cmd": "step", "kind": "over"})) } else { r(json!({"cmd": "continue"})) }));
             }
+            out.join("\n")
         }
         "watch-expr" => {
             let action = rest.first().map(|s| s.as_str()).filter(|s| *s == "add" || *s == "rm").unwrap_or("list");
             let expr = if action != "list" { Some(rest[1..].join(" ")) } else { None };
-            print_field(r(json!({"cmd": "watch_expr", "action": action, "expr": expr})), "watches");
+            fmt_field(r(json!({"cmd": "watch_expr", "action": action, "expr": expr})), "watches")
         }
-        "bt" => print_field(r(json!({"cmd": "bt"})), "bt"),
+        "bt" => fmt_field(r(json!({"cmd": "bt"})), "bt"),
         "list" => {
             let radius = opt(rest, "--radius").and_then(|d| d.parse::<i64>().ok()).unwrap_or(6);
-            print_field(r(json!({"cmd": "list", "radius": radius})), "source");
+            fmt_field(r(json!({"cmd": "list", "radius": radius})), "source")
         }
         "state" => match r(json!({"cmd": "state"})) {
             Some(v) if v["ok"].as_bool().unwrap_or(false) => {
-                print_stop(&v["stop"]);
-                println!("locals:");
-                if let Some(vars) = v["vars"].as_str() { println!("{vars}"); }
-                if let Some(w) = v["watches"].as_str() { if !w.is_empty() { println!("watches:\n{w}"); } }
+                let mut lines = vec![fmt_stop(&v["stop"]), "locals:".to_string()];
+                if let Some(vars) = v["vars"].as_str() { lines.push(vars.to_string()); }
+                if let Some(w) = v["watches"].as_str() { if !w.is_empty() { lines.push(format!("watches:\n{w}")); } }
+                lines.join("\n")
             }
-            _ => println!("error"),
+            _ => "error".to_string(),
         },
-        "stop" => { r(json!({"cmd": "stop"})); println!("debug session ended"); }
+        "stop" => { r(json!({"cmd": "stop"})); "debug session ended".to_string() }
         "where" => match r(json!({"cmd": "where", "query": rest.first().cloned().unwrap_or_default()})) {
             Some(v) if v["ok"].as_bool().unwrap_or(false) => {
-                for s in v["symbols"].as_array().cloned().unwrap_or_default() {
+                v["symbols"].as_array().cloned().unwrap_or_default().iter().map(|s| {
                     let c = s["container"].as_str().map(|c| format!(" ({c})")).unwrap_or_default();
-                    println!("  {}{}  {}:{}", s["name"].as_str().unwrap_or("?"), c, s["file"].as_str().unwrap_or("?"), s["line"]);
-                }
+                    format!("  {}{}  {}:{}", s["name"].as_str().unwrap_or("?"), c, s["file"].as_str().unwrap_or("?"), s["line"])
+                }).collect::<Vec<_>>().join("\n")
             }
-            Some(v) => println!("error: {}", v["error"].as_str().unwrap_or("unknown")),
-            None => println!("error"),
+            Some(v) => format!("error: {}", v["error"].as_str().unwrap_or("unknown")),
+            None => "error".to_string(),
         },
         "def" | "refs" | "hover" => {
-            let (f, l, c) = (rest[0].clone(), rest.get(1).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0),
-                             rest.get(2).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0));
+            let Some(f) = rest.first().cloned() else { return "error: needs <file> <line> <col>".to_string() };
+            let (l, c) = (rest.get(1).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0),
+                          rest.get(2).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0));
             match r(json!({"cmd": cmd, "file": f, "line": l, "col": c})) {
                 Some(v) if v["ok"].as_bool().unwrap_or(false) => {
                     if cmd == "hover" {
-                        println!("{}", v["hover"].as_str().filter(|s| !s.is_empty()).unwrap_or("(no hover)"));
+                        v["hover"].as_str().filter(|s| !s.is_empty()).unwrap_or("(no hover)").to_string()
                     } else {
                         let locs = v["locations"].as_array().cloned().unwrap_or_default();
-                        if locs.is_empty() { println!("(none)"); }
-                        for loc in locs {
-                            println!("  {}:{}:{}", loc["file"].as_str().unwrap_or("?"), loc["line"], loc["col"]);
+                        if locs.is_empty() {
+                            "(none)".to_string()
+                        } else {
+                            locs.iter().map(|loc| format!("  {}:{}:{}", loc["file"].as_str().unwrap_or("?"), loc["line"], loc["col"])).collect::<Vec<_>>().join("\n")
                         }
                     }
                 }
-                Some(v) => println!("error: {}", v["error"].as_str().unwrap_or("unknown")),
-                None => println!("error"),
+                Some(v) => format!("error: {}", v["error"].as_str().unwrap_or("unknown")),
+                None => "error".to_string(),
             }
         }
-        _ => { println!("{USAGE}"); return 2; }
+        _ => USAGE.to_string(),
     }
-    0
 }
 
-fn print_field(resp: Option<Value>, field: &str) {
+/// Run a `;`-separated batch of subcommands, labeling each with `$ <subcommand>`.
+/// Stops at the first error or program exit. Returns the combined text and
+/// whether any subcommand errored. Shared by the CLI `do` and the MCP `debug_do`.
+pub fn run_batch(ws: &Path, script: &str) -> (String, bool) {
+    let mut out = String::new();
+    let mut had_error = false;
+    for part in script.split(';') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let toks: Vec<String> = part.split_whitespace().map(String::from).collect();
+        let text = run_command(ws, toks[0].as_str(), &toks[1..]);
+        // an unknown subcommand falls through to the full USAGE — flag it, don't dump it
+        if text == USAGE {
+            out.push_str(&format!("$ {part}\nerror: unknown subcommand {:?} (not usable inside `do`)\n\n", toks[0]));
+            had_error = true;
+            break;
+        }
+        out.push_str(&format!("$ {part}\n{text}\n\n"));
+        let errored = text.lines().any(|l| l.trim_start().starts_with("error:"));
+        let exited = text.contains(">>> program exited");
+        had_error |= errored;
+        if errored || exited {
+            break;
+        }
+    }
+    (out, had_error)
+}
+
+fn fmt_field(resp: Option<Value>, field: &str) -> String {
     match resp {
-        Some(v) if v["ok"].as_bool().unwrap_or(false) => println!("{}", v[field].as_str().unwrap_or("")),
-        Some(v) => println!("error: {}", v["error"].as_str().unwrap_or("unknown")),
-        None => println!("error: daemon did not respond"),
+        Some(v) if v["ok"].as_bool().unwrap_or(false) => v[field].as_str().unwrap_or("").to_string(),
+        Some(v) => format!("error: {}", v["error"].as_str().unwrap_or("unknown")),
+        None => "error: daemon did not respond".to_string(),
     }
 }
 
@@ -430,7 +502,7 @@ fn do_launch(ws: &Path, rest: &[String], trace_mode: bool) -> i32 {
     match resp {
         Some(v) if v["ok"].as_bool().unwrap_or(false) => {
             if !trace_mode {
-                print_stop(&v["stop"]);
+                println!("{}", fmt_stop(&v["stop"]));
                 return 0;
             }
             // run through all hits and return the compact trace in one call

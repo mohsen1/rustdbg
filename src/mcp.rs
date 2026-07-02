@@ -32,6 +32,9 @@ fn tools() -> Vec<Value> {
                 "bin_path": {"type": "string"}, "breakpoints": {"type": "array", "items": {"type": "string"}},
                 "capture": {"type": "array", "items": {"type": "string"}}, "max": {"type": "integer"},
                 "args": {"type": "array", "items": {"type": "string"}}}))}),
+        json!({"name": "debug_do", "description":
+            "Run several rdbg subcommands in one call, separated by ';' (e.g. 'break src/main.rs:10; continue; vars; eval sum; bt'). Each is labeled with its command; stops at the first error or program exit. One tool call instead of a fixed break/inspect/continue recipe.",
+            "inputSchema": obj(json!({"commands": {"type": "string"}}))}),
         json!({"name": "debug_breakpoints", "description": "List all breakpoints with ids.", "inputSchema": obj(json!({}))}),
         json!({"name": "debug_remove_breakpoint", "description": "Remove a breakpoint by id (or 'panic').",
             "inputSchema": obj(json!({"id": {"type": "string"}}))}),
@@ -120,6 +123,10 @@ fn trace_call(ws: &Path, a: &Value) -> (String, bool) {
 fn call(ws: &Path, name: &str, a: &Value) -> (String, bool) {
     if name == "debug_trace" {
         return trace_call(ws, a);
+    }
+    if name == "debug_do" {
+        ensure_daemon(ws);
+        return crate::client::run_batch(ws, a["commands"].as_str().unwrap_or(""));
     }
     let payload = match name {
         "debug_launch" => {

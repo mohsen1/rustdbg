@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `rdbg do '<cmd>; <cmd>; ...'` / MCP `debug_do` — run several subcommands in one
+  call. Each is labeled with its command; the batch stops at the first error or
+  program exit. One call instead of a fixed break/inspect/continue recipe.
+
 ## 0.2.0
 
 - `rdbg trace` / MCP `debug_trace` — run through breakpoint hits without stopping
