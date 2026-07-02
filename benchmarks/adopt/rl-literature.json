@@ -1,0 +1,533 @@
+{
+  "summary": "Survey literature on RL/training coding agents with debugger/execution-grounded trajectories, map to our findings, generate ideas",
+  "agentCount": 5,
+  "logs": [
+    "gathered from 4 search angles"
+  ],
+  "result": {
+    "search": [
+      {
+        "angle": "debugger-envs",
+        "works": [
+          {
+            "title": "debug-gym: A Text-Based Environment for Interactive Debugging",
+            "venue_or_org": "Microsoft Research (Montreal / Froggy team); arXiv 2503.21557",
+            "year": "2025",
+            "url": "https://arxiv.org/abs/2503.21557",
+            "what": "An open-source text environment that hands an LLM agent real debugging tools (pdb, view, eval, rewrite, listdir) so it can set breakpoints, step, and print runtime variable values before rewriting code; evaluated on Aider, Mini-nightmare, and SWE-bench Lite across nine LLMs.",
+            "relevance": "The canonical environment behind your setup. It reports the same core tension you saw: debugger access is a 'promising direction' but agents still rarely solve >half of SWE-bench Lite, which the authors blame on the SCARCITY of sequential debugging traces in pretraining corpora. Their explicit future work is to RL-train / fine-tune an 'info-seeking' model on debugging trajectories, which is exactly your 'trajectories are richer learning material for SFT/process-reward RL' conclusion, stated as an open problem rather than a result."
+          },
+          {
+            "title": "Debug2Fix: Can Interactive Debugging Help Coding Agents Fix More Bugs?",
+            "venue_or_org": "Microsoft (Spandan Garg, Yufan Huang); arXiv 2602.18571",
+            "year": "2026",
+            "url": "https://arxiv.org/abs/2602.18571",
+            "what": "Wraps an interactive debugger behind a specialized SUBAGENT (high-level interface + file-edits disabled until the agent debugs first) and measures bug-fix pass rates for GPT-5, Claude Haiku 4.5, and Sonnet 4.5 on GitBug-Java and SWE-Bench-Live.",
+            "relevance": "The closest paper to your experiment and a direct corroboration of your adoption dynamics: exposing debug tools DIRECTLY to the main agent yielded only ~9% adoption and DEGRADED performance (Sonnet -14.8%) -- your 0% neutral-prompt adoption -- while forcing debug-first drove 98.9-99.5% adoption -- your ~100% forceful-prompt case. It also quantifies your token-friction point (subagent adds ~400k tokens / ~33 steps). Crucially it CONTRASTS with your outcome result: it claims the debugger helps outcome (+13-22% pass rate), but only vs a static/print-debugging baseline and with forced debug-first. Your finding that plain reading matches the debugger's pass rate at ~half the tokens is a sharp, isolating counterpoint to their headline."
+          },
+          {
+            "title": "ChatDBG: Augmenting Debugging with Large Language Models",
+            "venue_or_org": "UMass Amherst / Williams College / Amazon (Levin, van Kempen, Berger, Freund); arXiv 2403.16354, FSE 2025",
+            "year": "2024",
+            "url": "https://arxiv.org/abs/2403.16354",
+            "what": "Lets an LLM 'take the wheel' of a standard debugger (pdb for Python; an LLDB/GDB plug-in for C/C++), autonomously issuing debugger commands via function calls to inspect stacks and program state while answering a developer's natural-language question about a failure.",
+            "relevance": "The clearest prior articulation of your grounding thesis: it argues that querying ACTUAL runtime values 'reduces speculative reasoning' and hallucination, and reports strong results (Python 67%->85% actionable fixes with follow-up; C/C++ root cause 36% + proximate 55%). It supports your claim that debugger observations are more grounded, but it never quantifies confabulation the way you do (your 2.0->1.8 measurement and the read-only CONFABULATION finding look novel)."
+          },
+          {
+            "title": "InspectCoder: Dynamic Analysis-Enabled Self Repair through Interactive LLM-Debugger Collaboration",
+            "venue_or_org": "Zhejiang University / Alibaba (Yunkun Wang et al.); arXiv 2510.18327",
+            "year": "2025",
+            "url": "https://arxiv.org/abs/2510.18327",
+            "what": "A dual-agent program-repair system where the LLM actively conducts dynamic analysis via a stateful debugger session -- strategic breakpoints, targeted state inspection, incremental runtime experimentation -- using 'immediate process rewards from debugger feedback' to steer multi-step reasoning; +5.1-60.4% relative repair accuracy and 1.67-2.24x efficiency on BigCodeBench-R / LiveCodeBench-R.",
+            "relevance": "The one work that explicitly frames debugger feedback as PROCESS REWARDS, echoing your process-reward-RL framing -- but be honest that these rewards guide inference-time search/reasoning, not weight updates (no RL training). It is evidence that the 'debugger trace = dense process signal' intuition is in the air, while your outcome-vs-process split is a cleaner statement of when that signal does and doesn't pay off."
+          },
+          {
+            "title": "LeDex (LDEX): Training LLMs to Better Self-Debug and Explain Code",
+            "venue_or_org": "Amazon AWS AI Labs / Purdue / Columbia (Nan Jiang et al.); arXiv 2405.18649, NeurIPS 2024",
+            "year": "2024",
+            "url": "https://arxiv.org/abs/2405.18649",
+            "what": "A pipeline that collects code explanation+refinement traces, does SFT, then RL with a novel reward combining explanation semantics and unit-test success; SFT gives up to +15.9% pass@1 and RL adds up to +3.5% more.",
+            "relevance": "The best existing example of actually RL-TRAINING a model to debug, and it partly validates your SFT+process-reward direction -- but with an important caveat you should cite honestly: LeDex trains SELF-debug (self-generated explanations judged by tests), NOT interactive-debugger tool use. No runtime debugger is in the loop. It sits on the 'learn from debugging-shaped data' side of your conclusion while leaving your specific claim (RL-train an agent to USE rdbg) unclaimed."
+          },
+          {
+            "title": "LDB: Debug like a Human -- A Large Language Model Debugger via Verifying Runtime Execution Step-by-step",
+            "venue_or_org": "UC San Diego (Li Zhong, Zilong Wang, Jingbo Shang); arXiv 2402.16906, ACL 2024",
+            "year": "2024",
+            "url": "https://arxiv.org/abs/2402.16906",
+            "what": "Segments generated programs into basic blocks and feeds the LLM the intermediate variable values after each block at runtime, letting it verify correctness block-by-block; up to +9.8% over baselines on HumanEval / MBPP / TransCoder.",
+            "relevance": "An early, influential demonstration that RUNTIME-GROUNDED intermediate values (rather than the source text alone) improve repair -- the mechanism your grounding analysis credits the debugger with (3.2x more grounded observations). It is not agentic tool use (the harness feeds values in a fixed schedule), which sharpens the distinction: your work measures what happens when an autonomous agent must CHOOSE to gather that grounding, and whether it will."
+          },
+          {
+            "title": "Empowering Autonomous Debugging Agents with Efficient Dynamic Analysis",
+            "venue_or_org": "Southern University of Science and Technology (Jiahong Xiang et al.); arXiv 2604.24212",
+            "year": "2026",
+            "url": "https://arxiv.org/abs/2604.24212",
+            "what": "Gives an autonomous APR agent runtime dynamic-analysis tooling (debugger-style execution feedback) but focuses on making that analysis token-EFFICIENT, benchmarked on SWE-bench against SpecRover, SWE-agent, and Agentless.",
+            "relevance": "Independent confirmation that the debugger's cost is a first-class problem: their whole contribution is cutting the token/overhead tax of dynamic analysis, which is precisely your '~13x of the extra tokens is tool friction' observation. Supports your net-negative-for-outcome-only framing by treating debugger efficiency, not just capability, as the bottleneck."
+          }
+        ],
+        "takeaways": [
+          "The interactive-debugger-as-agent-environment subarea is now real and clustered: debug-gym (the environment), ChatDBG, InspectCoder, and Debug2Fix all have an LLM autonomously driving pdb/gdb/lldb to inspect runtime state. Your Rust/rdbg setup fits squarely in this line and is one of the few using a Rust debugger rather than Python pdb.",
+          "Your adoption result is strongly corroborated, not novel-in-isolation: Debug2Fix (Microsoft, 2026) independently found that DIRECT debug-tool exposure gets ~9% adoption and can DEGRADE performance (Sonnet -14.8%), while forcing debug-first drives ~99% adoption -- a near-exact match to your 0% neutral vs ~100% forceful split. debug-gym attributes the low natural uptake to the scarcity of debugging traces in pretraining data.",
+          "Your OUTCOME result is a genuine, publishable counterpoint. The literature's optimistic headline (Debug2Fix: +13-22% pass rate; ChatDBG; InspectCoder) is generally measured against static/print-debugging baselines and often with forced debug-first. Nobody in this set isolates 'debugger vs. just reading the code' at matched task difficulty -- your finding that reading matches the debugger's pass rate at ~half the tokens attacks exactly the comparison these papers skip.",
+          "Your confabulation measurement looks novel. ChatDBG asserts qualitatively that runtime grounding 'reduces speculative reasoning,' and grounding/dynamic-values improving repair is well established (LDB, InspectCoder), but no work in this set quantifies confabulation (asserting unobserved I/O as fact) or shows a read-only trace actively fabricating -- nor the surprising 'debugger barely reduces it (2.0->1.8)' result. That specific negative is your contribution.",
+          "RL-training an agent to USE an interactive debugger is essentially unclaimed -- the subarea is thin. debug-gym proposes it as future work but does not do it; InspectCoder's 'process rewards from debugger feedback' guide inference-time search, not weight updates; LeDex actually does SFT+RL but on self-generated explanations/self-debug with a test-plus-explanation reward, with no runtime debugger in the loop. So your 'debugger trajectories are net-positive for SFT/process-reward RL but net-negative for outcome-only RL' framing is on the open frontier -- position it as the missing experiment these papers gesture toward.",
+          "Token friction is a recognized, first-class cost, which supports your net-negative-for-outcome-only argument: Debug2Fix's subagent adds ~400k tokens/~33 steps, and 'Efficient Dynamic Analysis' (2026) is a whole paper about shrinking the dynamic-analysis overhead. The field is converging on 'the debugger is expensive'; your ~13x tool-friction figure and the 'aha came from reading in 80% of runs, rdbg was post-hoc verification' observation give a mechanism for WHY that cost often isn't repaid.",
+          "Framing suggestion for a writeup: cite Debug2Fix as the strongest prior (adoption + architecture) and explicitly set your work against it -- same adoption dynamics, opposite outcome verdict once you control for reading and tokens -- then use debug-gym's 'no RL yet' and LeDex's 'RL but not on tool-use' to stake out the process-reward-RL-on-debugger-trajectories gap as your unique claim. Two adjacent-but-different works worth a footnote: AgentStepper (arXiv 2602.06593) is interactive debugging OF agents (inverse direction), and LeDex/LDB are self-debug/runtime-value methods rather than autonomous tool use."
+        ]
+      },
+      {
+        "angle": "execution-feedback-rl",
+        "works": [
+          {
+            "title": "RLEF: Grounding Code LLMs in Execution Feedback with Reinforcement Learning",
+            "venue_or_org": "Meta AI (FAIR) — Gehring, Zheng, Copet, Carbonneaux, Cohen, Synnaeve; ICML 2025",
+            "year": "2024/2025",
+            "url": "https://arxiv.org/abs/2410.02089",
+            "what": "End-to-end multi-turn PPO that repeatedly prompts the LLM to solve a competitive-programming problem, inserts execution feedback (public-test results / error output) into the conversation on failure, and gives the terminal reward from private-test pass/fail; SOTA on CodeContests with 8B/70B models at ~10x fewer samples.",
+            "relevance": "The canonical 'ground in execution feedback' RL paper and the closest analogue to your setup, but its REWARD is pure outcome (private-test pass/fail) — execution feedback enters only as in-context text, not as reward over runtime state. Supports your claim that outcome-only RL is well-served by cheap pass/fail signals: the value RLEF extracts is teaching the model to READ feedback and iterate, not to reward-shape on runtime observations. Mirrors your 'reading beats the debugger for outcome' finding — RLEF grounds on feedback text, not a live debugger state."
+          },
+          {
+            "title": "CodeRL: Mastering Code Generation through Pretrained Models and Deep Reinforcement Learning",
+            "venue_or_org": "Salesforce Research — Le, Wang, Gotmare, Savarese, Hoi; NeurIPS 2022",
+            "year": "2022",
+            "url": "https://arxiv.org/abs/2207.01780",
+            "what": "Actor-critic RL where unit-test execution provides the reward, bucketed by outcome TYPE (compile error / runtime error / failed test / passed, roughly -1.0/-0.6/-0.3/+1.0); a learned critic predicts per-token return to densify the sparse signal, plus critic-guided 'critical sampling' at inference. SOTA on APPS/MBPP for its size.",
+            "relevance": "Foundational unit-test-reward RL and the origin of the coarse error-type reward scheme later reused by StepCoder. Illustrates the field's default: the richest 'execution' signal is an outcome CATEGORY, never runtime variable state. Directly supports your point that standard code RL barely touches the grounded runtime observations a debugger surfaces — confabulation of I/O values is invisible to a pass/fail(/error-type) reward."
+          },
+          {
+            "title": "StepCoder: Improving Code Generation with Reinforcement Learning from Compiler Feedback",
+            "venue_or_org": "Fudan NLP + HUST + KTH — Dou et al.; ACL 2024",
+            "year": "2024",
+            "url": "https://arxiv.org/abs/2402.01391",
+            "what": "RL from compiler/execution feedback with (a) CCCS curriculum that decomposes hard generation into code-completion subtasks and (b) Fine-Grained Optimization (FGO) that masks tokens NOT executed by the unit tests when computing the policy loss, so only actually-executed code gets credit. Reward is the CodeRL-style outcome/error-type scalar.",
+            "relevance": "FGO is a form of execution-grounded credit assignment — reward only what actually ran — which is conceptually the flip side of your confabulation finding (don't credit unexecuted/unobserved code). Still outcome-based, not state-based, reinforcing that even 'compiler feedback' RL means pass/fail + coverage, not runtime values."
+          },
+          {
+            "title": "SWE-RL: Advancing LLM Reasoning via Reinforcement Learning on Open Software Evolution",
+            "venue_or_org": "Meta AI (FAIR) — Wei et al.",
+            "year": "2025",
+            "url": "https://arxiv.org/abs/2502.18449",
+            "what": "Scales RL (GRPO) on GitHub PR data using a rule-based reward = sequence-similarity between the model's patch and the oracle patch (with format penalties) — NO code execution in the loop. Llama3-SWE-RL-70B reaches 41.0% on SWE-bench Verified.",
+            "relevance": "The extreme opposite of debugger-grounding: SOTA-competitive repair with ZERO runtime signal, grounding on a reference patch instead. A strong data point for your outcome-oriented conclusion — if a cheap reference/similarity reward already trains competitive repair, the debugger's expensive runtime state buys little for outcome-only RL. Its weakness (similarity != correctness) is exactly where richer trajectory/state signal could help as learning material."
+          },
+          {
+            "title": "Training Software Engineering Agents and Verifiers with SWE-Gym",
+            "venue_or_org": "UC Berkeley + CMU + UIUC + Apple — Pan, Wang, Neubig, Jaitly, Ji, Suhr, Zhang; ICLR 2025",
+            "year": "2024/2025",
+            "url": "https://arxiv.org/abs/2412.21139",
+            "what": "First executable training environment of 2,438 real Python tasks with runtime + expert tests; uses test pass/fail as the reward for rejection-sampling fine-tuning of agents, AND trains a learned verifier over full agent trajectories to rank rollouts at inference (up to +19% resolve rate on SWE-bench Lite/Verified).",
+            "relevance": "Its trajectory-level learned verifier is process-reward-adjacent and directly supports your thesis that whole trajectories (not just final pass/fail) are valuable LEARNING material. Your debugger traces — richer in grounded observations — are exactly the kind of trajectory data a SWE-Gym-style verifier or SFT pipeline could exploit, even though the environment's own reward is still pass/fail."
+          },
+          {
+            "title": "R2E-Gym: Procedural Environments and Hybrid Verifiers for Scaling Open-Weights SWE Agents",
+            "venue_or_org": "UC Berkeley (Sky/RISE) — Jain, Singh, Shetty, Zheng, Sen, Stoica",
+            "year": "2025",
+            "url": "https://arxiv.org/abs/2504.07164",
+            "what": "8.1K procedurally-curated executable SWE tasks (SWEGEN: test-generation + back-translation from commits). Studies test-time scaling with EXECUTION-based verifiers (run tests) vs EXECUTION-FREE learned trajectory verifiers; each saturates ~42-43% alone, but combining them hits 51% on SWE-bench Verified (open-weight SOTA).",
+            "relevance": "The most direct evidence for your outcome-vs-learning tension: execution-based (pass/fail) verifiers have 'low distinguishability' and plateau, while a LEARNED verifier reading the trajectory adds complementary signal. This is precisely your 'debugger traces are richer learning material, but outcome reward alone doesn't capture it' — the win comes from modeling the trajectory, not from more execution. Also validates that execution-free reading can rival execution on outcome (your 'reading beats debugger at equal pass rate')."
+          },
+          {
+            "title": "ExecVerify: White-Box RL with Verifiable Stepwise Rewards for Code Execution Reasoning",
+            "venue_or_org": "Zhejiang University — Tang, Ye, Chu, Ye, Liu, Ren, Bao",
+            "year": "2026",
+            "url": "https://arxiv.org/abs/2603.11226",
+            "what": "RL that rewards the model for correctly PREDICTING runtime state during execution — verifiable stepwise rewards on control-flow progression and variable values/types derived from real execution traces (evaluated on CRUXEval/LiveCodeBench/BigCodeBench-style execution reasoning).",
+            "relevance": "The rare paper whose reward IS grounded runtime state, not pass/fail — it operationalizes exactly your 'grounded runtime observations' axis and, by rewarding correct variable-value prediction, directly attacks the confabulation failure mode you measured (asserting unobserved I/O as fact). Strong support that runtime-state signal is a distinct, learnable objective the outcome-only reward misses."
+          },
+          {
+            "title": "StepCodeReasoner: Aligning Code Reasoning with Stepwise Execution Traces via Reinforcement Learning",
+            "venue_or_org": "King's College London + Beihang — Wang, Li, Sha, J. M. Zhang",
+            "year": "2026",
+            "url": "https://arxiv.org/abs/2605.11922",
+            "what": "Inserts print-based execution-trace anchors into code and trains the model to predict intermediate runtime state; introduces Bi-Level GRPO with two reward levels — inter-trajectory (final pass/fail) and intra-trajectory (intermediate execution-state accuracy weighted by downstream impact) for structured credit assignment.",
+            "relevance": "The clearest literature realization of your central claim: it treats runtime STATE as a first-class reward alongside pass/fail, and its intra-trajectory reward is a PROCESS reward over grounded execution observations. This is the design your finding argues for — debugger-style state as process-reward/SFT signal — showing the community is only now (2026) building rewards over runtime state rather than outcomes."
+          }
+        ],
+        "takeaways": [
+          "Reward-signal reality check: across the mainstream of code-with-execution RL, the reward is coarse OUTCOME, not runtime state. Pass/fail dominates (RLEF, SWE-Gym, R2E-Gym); a few use error-TYPE buckets (CodeRL, StepCoder); SWE-RL uses reference-patch similarity with no execution at all. This strongly corroborates your finding: outcome-only RL is well-served by cheap signals and does not exploit the grounded runtime state a debugger provides.",
+          "Runtime STATE as reward is a thin, brand-new subarea (essentially 2026): only StepCodeReasoner (Bi-Level GRPO over intermediate execution states) and ExecVerify (verifiable rewards on predicted variable values/types/control-flow) actually reward grounded runtime observations. Everything earlier rewards outcomes. Your grounding/confabulation analysis sits right in this gap — there is an open opportunity for state-grounded process rewards, and the earliest works validate the direction.",
+          "RLEF's real lesson matches yours: RL taught models to USE execution feedback in-context (multi-turn iterate-on-failure), but the reward stayed pass/fail. So RLEF grounds on feedback TEXT rather than a live debugger — consistent with your 'reading beats the debugger for outcome' result and your framing that the debugger's marginal value is not in the outcome reward.",
+          "Where richer trajectory signal pays off is verifiers and PROCESS/dense rewards, not outcome-only RL — exactly your net-negative-for-outcome-RL / net-positive-for-process-RL split. SWE-Gym and R2E-Gym both add learned trajectory verifiers on top of execution; R2E-Gym's headline result is that execution-based verifiers plateau (~42-43%, 'low distinguishability') and only combining with a learned trajectory verifier reaches 51%. Your debugger traces are precisely the higher-information trajectories such verifiers/SFT want.",
+          "Execution-FREE feedback can rival execution on outcome, and the community is actively pushing this (R2E-Gym's learned verifiers; SWE-RL's no-execution similarity reward; and follow-ons like SWE-RM 'execution-free feedback for SWE agents', arXiv 2512.21919). This echoes your 'reading matches the debugger at equal pass rate, half the tokens' — for the outcome objective, cheaper non-runtime signals are competitive.",
+          "Honorable mention on the multi-turn axis: muCode (Multi-Turn Code Generation Through Single-Step Rewards, arXiv 2502.20380, Cornell) casts iterative code gen as a one-step-recoverable MDP and trains a dense learned verifier over (prompt, current solution) — reward is still execution pass/fail plus verifier score, again densifying OUTCOME rather than modeling runtime state. Reinforces that even multi-turn/agentic RL rarely rewards state.",
+          "Net synthesis for your write-up: the literature cleanly bifurcates into (a) OUTCOME/reference rewards (RLEF, CodeRL, StepCoder, SWE-RL, SWE-Gym, R2E-Gym) that don't need a debugger, and (b) an emerging STATE/PROCESS-reward frontier (StepCodeReasoner, ExecVerify) that does — which is exactly where your debugger-trajectory dataset and confabulation-reduction argument are most defensible. Be honest that (b) is small and 2026-fresh; framing your finding as motivation for state-grounded process rewards is well-supported but not yet crowded."
+        ]
+      },
+      {
+        "angle": "process-grounding-reward",
+        "works": [
+          {
+            "title": "Let's Verify Step by Step",
+            "what": "OpenAI's foundational study showing that process supervision (rewarding each intermediate reasoning step) substantially outperforms outcome supervision on MATH, and releases PRM800K, 800K human step-level correctness labels.",
+            "relevance": "Directly grounds your outcome-only-RL vs process-reward-RL framing: it is the canonical evidence that step-level signal beats final-answer-only signal for teaching reasoning. Supports your claim that debugger trajectories are better *process-reward* material even when they don't move the outcome (test-pass) needle.",
+            "url": "https://arxiv.org/abs/2305.20050",
+            "venue_or_org": "OpenAI (Lightman et al.)",
+            "year": "2023"
+          },
+          {
+            "title": "Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations",
+            "what": "Builds a step-level process reward model automatically by estimating each step's value from how often it leads to a correct completion (Monte Carlo rollouts), removing the need for human step labels, then uses the PRM for verification and RL.",
+            "relevance": "The auto-labeling recipe you'd use to turn richer debugger trajectories into a PRM: it shows how to derive step-level grounding rewards from downstream success rather than hand annotation. Relevant to your 'debugger traces are richer SFT/PRM material' conclusion.",
+            "url": "https://arxiv.org/abs/2312.08935",
+            "venue_or_org": "Peking University / DeepSeek (ACL 2024)",
+            "year": "2023/2024"
+          },
+          {
+            "title": "TruthRL: Incentivizing Truthful LLMs via Reinforcement Learning",
+            "what": "Uses GRPO with a ternary reward that distinguishes correct answers, hallucinations, and abstentions, penalizing confident wrong answers and rewarding 'I don't know' when uncertain, so optimizing truthfulness instead of raw accuracy.",
+            "relevance": "The clearest formalization of 'don't assert what you didn't verify': it makes confident-but-unobserved claims (your read-only confabulation) explicitly negative-reward and rewards abstention. Almost a direct reward analog to penalizing your CONFABULATE behavior.",
+            "url": "https://arxiv.org/abs/2509.25760",
+            "venue_or_org": "Meta / Facebook Research (ICML 2026)",
+            "year": "2025/2026"
+          },
+          {
+            "title": "Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level Reinforcement Learning for Small Reasoning Models",
+            "what": "Adds a faithfulness-aware step-level reward that only reinforces reasoning steps grounded in available information plus an information-gain penalty that docks steps introducing unsupported content, so models stop learning plausible-but-unfounded intermediate reasoning.",
+            "relevance": "The single closest match to your finding: it operationalizes 'reward grounded observation, penalize speculation' at the step level and specifically targets plausible-sounding-but-ungrounded steps, i.e. exactly the confabulation your read-only traces exhibit.",
+            "url": "https://arxiv.org/pdf/2602.05897",
+            "venue_or_org": "arXiv (Nie et al.)",
+            "year": "2026"
+          },
+          {
+            "title": "Proof-of-Use: Mitigating Tool-Call Hacking in Deep Research Agents",
+            "what": "Forces agents to auditably cite normalized evidence identifiers, with process rewards constraining citation validity, an Answer-Support Alignment reward tying the final answer to actually-retrieved evidence, and adaptive dense-to-sparse reward mixing.",
+            "relevance": "Tool-call-reward analog of your finding: it penalizes 'decorative' tool use where the tool is called but reasoning isn't grounded in its output, matching your observation that rdbg was often post-hoc verification (aha came from reading in 80% of runs). It shows how to reward genuine grounding-in-tool-output rather than tool invocation.",
+            "url": "https://arxiv.org/abs/2510.10931",
+            "venue_or_org": "arXiv (Ma et al.)",
+            "year": "2025/2026"
+          },
+          {
+            "title": "CodePRM: Execution Feedback-enhanced Process Reward Model for Code Generation",
+            "what": "Trains a process reward model that scores each reasoning/thought step using real code execution feedback (pass rates, error output) attached to that step, then uses it in a Generate-Verify-Refine loop.",
+            "relevance": "Directly parallels 'debugger traces carry 3.2x more grounded runtime observations': it treats execution results as the grounding signal for step-level rewards in code, validating that runtime-observed steps are higher-quality PRM training material than un-executed speculation.",
+            "url": "https://aclanthology.org/2025.findings-acl.428/",
+            "venue_or_org": "ACL Findings 2025 (Li et al.)",
+            "year": "2025"
+          },
+          {
+            "title": "Act Like You're Paying for This: Course-Correcting Code Agents with PRMs (SWE-PRM)",
+            "what": "An inference-time process reward model that periodically intervenes in SWE agent trajectories to catch specification/reasoning/coordination errors, lifting SWE-bench Verified from 40% to 50.6% at ~$0.2 per extra resolved instance.",
+            "relevance": "Speaks to your token-friction/cost economics: it quantifies the extra-cost-per-extra-solve tradeoff of process supervision on code agents, the same lens you use to argue the debugger is net-negative for outcome-only RL but worth it as process signal.",
+            "url": "https://arxiv.org/html/2509.02360v1",
+            "venue_or_org": "Carnegie Mellon University + IBM Research",
+            "year": "2025"
+          },
+          {
+            "title": "Verify Before You Fix: Agentic Execution Grounding for Trustworthy Cross-Language Code Analysis",
+            "what": "Enforces a lifecycle where no repair is attempted without execution-based confirmation of exploitability (sandboxed runs with sanitizers/instrumentation), converting probabilistic detector predictions into evidence-backed decisions and cutting false repairs.",
+            "relevance": "Titular embodiment of 'verify before you assert' for bug-fixing agents: it argues, as your study does, that running code to observe actual state should gate action rather than reasoning about correctness from source alone, i.e. the exact case for the runtime debugger.",
+            "url": "https://arxiv.org/html/2604.10800",
+            "venue_or_org": "George Washington University (Gajjar)",
+            "year": "2026"
+          }
+        ],
+        "takeaways": [
+          "The literature strongly supports your 'richer learning material' half: process/step-level supervision (Let's Verify Step by Step, Math-Shepherd) and execution-grounded step rewards (CodePRM) are established as better *training signal* than outcome-only rewards, exactly the distinction you draw between process-reward RL and outcome-only RL.",
+          "There is now a direct, named reward-design line for penalizing confabulation: TruthRL (ternary correct/hallucination/abstention reward) and 'Stop Rewarding Hallucinated Steps' (faithfulness-aware step reward + information-gain penalty) both make confident-but-ungrounded claims explicitly negative-reward and reward grounding/abstention. These are the closest reward-side analogs to your CONFABULATE metric.",
+          "For the tool-call / 'verify before you assert' angle, Proof-of-Use is the key reference: it penalizes decorative tool use and rewards answers causally grounded in tool output, mirroring your finding that rdbg was often post-hoc verification rather than the source of the fix. 'Verify Before You Fix' is the bug-fixing-specific statement of the same principle (execution-based confirmation gates the fix).",
+          "Honest gap: no public work isolates a *runtime interactive debugger* (vs reading) as the grounding source for a coding agent, nor measures grounding/confabulation in agent trajectories the way you do. Existing grounding-reward work concentrates in math CoT, RAG/deep-research citation grounding, and (increasingly) code execution feedback. Your reading-vs-debugger confabulation measurement and 'aha came from reading in 80% of debugger runs' observation appear novel relative to this literature.",
+          "The cost/token-friction tradeoff you flag is corroborated but under-theorized: SWE-PRM ('Act Like You're Paying for This') is the main work that explicitly prices process supervision per-extra-solve. Most PRM/grounding-reward papers report accuracy gains without your ~13x token-friction accounting, so framing the debugger as net-negative for outcome-only RL but net-positive as process/grounding signal is a differentiated contribution.",
+          "Practical implication for your setup: to capture the debugger's value without the outcome-RL penalty, the literature points to (a) using debugger trajectories for SFT and PRM training a la Math-Shepherd/CodePRM, and (b) adding a TruthRL/Proof-of-Use-style grounding term that rewards claims tied to observed runtime values and penalizes asserted-but-unobserved I/O, rather than rewarding tool invocation itself."
+        ]
+      },
+      {
+        "angle": "trajectory-data-hallucination",
+        "works": [
+          {
+            "title": "Training Software Engineering Agents and Verifiers with SWE-Gym",
+            "venue_or_org": "UC Berkeley / CMU / UIUC (Pan, Wang, Neubig, Jaitly, Ji, Suhr, Zhang); ICML 2025",
+            "year": "2024",
+            "url": "https://arxiv.org/abs/2412.21139",
+            "what": "Open training environment of 2.4K real repo tasks; SFT on <500 GPT-4o/Claude-3.5 agent trajectories yields +14% absolute on SWE-Bench Verified with a 32B OpenHands agent, and separately trains outcome verifiers.",
+            "relevance": "Canonical evidence that even a few hundred agent trajectories are high-value SFT data, directly supporting your 'debugger traces are rich learning material for SFT' conclusion. Its verifier-training half is a precedent for scoring/selecting which trajectories to keep, and its results are outcome-driven (test-pass), the exact axis on which you found the debugger net-neutral."
+          },
+          {
+            "title": "R2E-Gym: Procedural Environments and Hybrid Verifiers for Scaling Open-Weights SWE Agents",
+            "venue_or_org": "UC Berkeley (Jain, Singh, Shetty, Zheng, Sen, Stoica)",
+            "year": "2025",
+            "url": "https://arxiv.org/abs/2504.07164",
+            "what": "Procedurally generates 8.7K executable SWE tasks (SYNGEN) and, at test time, compares execution-based verifiers vs execution-free (LLM-judge) verifiers, finding they have complementary strengths; combining them reaches 51% on SWE-Bench Verified vs ~42-43% each alone.",
+            "relevance": "Its execution-based-vs-execution-free verifier dichotomy is a near-exact mirror of your debugger-vs-reading split: neither dominates and they are complementary. This is the closest published analog to 'the debugger grounds observations but reading gets the fix,' and it frames the two as different signal sources rather than one being strictly better."
+          },
+          {
+            "title": "ToRA: A Tool-Integrated Reasoning Agent for Mathematical Problem Solving",
+            "venue_or_org": "Microsoft / Tsinghua (Gou et al.); ICLR 2024",
+            "year": "2023",
+            "url": "https://arxiv.org/abs/2309.17452",
+            "what": "Interleaves NL reasoning with program execution; curates a 16K trajectory corpus by rejection-filtering out tool-error and wrong-answer traces, does imitation learning, then applies 'output space shaping' to further clean behavior.",
+            "relevance": "A direct template for SFT on tool-grounded traces where the execution outputs (its 'o' tokens) are exactly the 'grounded runtime observations' you count. It operationalizes rejection sampling on tool-grounded trajectories and shows that anchoring the trace on real tool output (not model-guessed values) is what makes the trace trainable, supporting your grounding argument."
+          },
+          {
+            "title": "STaR: Bootstrapping Reasoning with Reasoning (Self-Taught Reasoner)",
+            "venue_or_org": "Stanford / Google (Zelikman, Wu, Mu, Goodman); NeurIPS 2022",
+            "year": "2022",
+            "url": "https://arxiv.org/abs/2203.14465",
+            "what": "Generates chain-of-thought rationales, keeps only those that reach the correct answer (rejection sampling), fine-tunes on them, and iterates; a rationalization step recovers traces for problems solved incorrectly.",
+            "relevance": "The foundational rejection-sampling-on-traces recipe (with RFT and ReST as descendants) underlying the whole 'curate self-generated trajectories for SFT' paradigm. Crucially it filters on OUTCOME (correct final answer), which is the precise selection criterion under which your debugger traces would look no better than reading traces, illustrating why outcome-only pipelines undervalue process/grounding quality."
+          },
+          {
+            "title": "Teaching Large Language Models to Self-Debug",
+            "venue_or_org": "Google DeepMind / UC Berkeley (Chen, Lin, Scharli, Zhou); ICLR 2024",
+            "year": "2023",
+            "url": "https://arxiv.org/abs/2304.05128",
+            "what": "Feeds the model its own code's execution results plus a self-generated code explanation as feedback so it can identify and fix bugs ('rubber-duck debugging'), reaching SOTA on Spider, TransCoder, and MBPP without human error messages.",
+            "relevance": "The core mechanism for 'execution/observation grounding.' Notably its ablations show much of the gain comes from the model re-explaining the code, not solely raw execution output, echoing your finding that the fix 'aha' came from reading in 80% of debugger runs while the runtime signal was more confirmatory."
+          },
+          {
+            "title": "LEVER: Learning to Verify Language-to-Code Generation with Execution",
+            "venue_or_org": "U. Washington / Microsoft / Meta (Ni et al.); ICML 2023",
+            "year": "2023",
+            "url": "https://arxiv.org/abs/2302.08468",
+            "what": "Trains a learned verifier on the input, the program, and its execution results to rerank sampled programs, explicitly arguing that simple heuristics miss semantic execution features like data types and value ranges.",
+            "relevance": "Direct evidence that execution observations carry correctness signal that surface reading/heuristics miss, supporting your measurement that debugger traces carry ~3.2x more grounded runtime observations. It also exemplifies execution-grounded trajectory selection (verifier reranking), a curation lever relevant to your process-reward angle."
+          },
+          {
+            "title": "CodeHalu: Investigating Code Hallucinations in LLMs via Execution-based Verification",
+            "venue_or_org": "AAAI 2025 (Tian, Chen et al.)",
+            "year": "2024",
+            "url": "https://arxiv.org/abs/2405.00253",
+            "what": "Defines a taxonomy of code hallucinations (mapping, naming, resource, logic), builds a dynamic execution-based detector and the CodeHaluEval benchmark (8,883 samples / 699 tasks), and evaluates 17 LLMs.",
+            "relevance": "The closest published operationalization of your 'confabulation' construct: models assert code behavior that execution contradicts, detected by grounding against real execution. It supports both halves of your grounding analysis (models confabulate runtime behavior; execution is the ground truth that exposes it), though it scores static generations rather than interactive debugging trajectories."
+          },
+          {
+            "title": "LLM Hallucinations in Practical Code Generation",
+            "venue_or_org": "Nanyang Technological University et al.; ACM TOSEM 2025",
+            "year": "2024",
+            "url": "https://arxiv.org/abs/2409.20550",
+            "what": "Empirical study of hallucinations in repository-level code generation, with a taxonomy (Task-Requirement, Factual-Knowledge, and Project-Context conflicts / 8 subtypes), root-cause analysis, and tests of mitigations including retrieval/context grounding.",
+            "relevance": "Empirical backing for your 'read-only traces confabulate unobserved I/O as fact' observation: it documents models asserting facts inconsistent with the actual project/runtime context, and finds context grounding only partially mitigates, mirroring your result that grounding reduced confabulation only weakly (2.0 to 1.8)."
+          }
+        ],
+        "takeaways": [
+          "SFT/distillation on agent trajectories for coding is a mature, data-efficient paradigm (SWE-Gym: <500 traces -> +14% on SWE-Bench Verified; R2E-Gym, ToRA). This strongly supports your framing that debugger trajectories are valuable *learning material* even when they don't move an outcome metric.",
+          "Rejection sampling / trajectory filtering is the standard curation tool (STaR, RFT, ToRA, ReST), but nearly all published pipelines filter on OUTCOME (correct final answer/patch), not on process- or grounding-quality. That is exactly the regime in which your debugger traces look net-neutral-to-negative, and it is the gap your process-reward/grounding argument targets.",
+          "The execution-grounded vs execution-free split is already recognized as complementary, not strictly ordered: R2E-Gym finds execution-based and LLM-judge verifiers each saturate ~42-43% but combine to 51%. This is the strongest external analog to your 'debugger grounds observations, reading gets the fix' result.",
+          "Execution grounding is well-established as improving correctness (Self-Debug, LEVER, ToRA) and as a detector of hallucination (CodeHalu). But the literature almost always uses execution to *verify/rerank final outputs*, not to *measure whether interactive runtime access reduces a model's confabulation of values mid-trajectory*. That specific causal measurement is your novel contribution and is genuinely thin.",
+          "Notably, Self-Debug's own ablations attribute much of the gain to the model re-explaining its code rather than to raw execution output, independently corroborating your 'aha came from reading, debugger was post-hoc verification' finding.",
+          "Code-hallucination taxonomies (CodeHalu; NTU's TOSEM study) name and benchmark 'asserting behavior that execution contradicts,' but treat static generation. 'An agent confabulating I/O / runtime values during interactive debugging' as a distinct, quantified failure mode is under-studied — your grounding-scored trajectory analysis appears to fill a real gap.",
+          "The process-reward half of your conclusion has classic support (Lightman et al., 'Let's Verify Step by Step,' 2023, process reward models > outcome rewards for reasoning), and code-agent-specific process supervision is an active but still-emerging area — a good place to position the work.",
+          "Honest gaps: I found no prior work on the specific head-to-head of a *runtime debugger tool vs plain file reading* for a coding agent, nor on debugger *adoption being ~0% under neutral prompting and ~100% under forceful prompting*, nor on the ~13x tool-friction token overhead. These pieces of your finding look genuinely novel. Caveat: the search surfaced many 2026-dated arXiv entries I could not verify as real (likely index noise), so I deliberately restricted the list above to papers I confirmed exist."
+        ]
+      }
+    ],
+    "synthesis": {
+      "landscape": "The literature clusters into four lines that surround our finding without occupying its center. (1) Interactive-debugger-as-agent-environment (debug-gym, Debug2Fix, ChatDBG, InspectCoder, LDB) has made \"an LLM autonomously drives pdb/gdb/lldb to read runtime state\" a real subarea; our Rust/rdbg (DAP/lldb-dap) setup fits squarely in it and is one of very few using a Rust debugger. This line establishes the mechanism (runtime-grounded values improve repair) and the adoption dynamics (Debug2Fix: ~9% adoption on direct exposure, ~99% forced; our 0%/~100% is a near-exact match), and it names \"RL/SFT an info-seeking model on debugging traces\" as an OPEN PROBLEM (debug-gym) rather than a result. (2) Execution-feedback RL (RLEF, CodeRL, StepCoder, SWE-RL, SWE-Gym, R2E-Gym) is overwhelmingly OUTCOME-rewarded: pass/fail, error-type buckets, or reference-patch similarity. This corroborates our \"outcome-only RL is well-served by cheap signals, so the debugger's runtime state buys little for outcome-only RL\" half. (3) A brand-new (2026) STATE/PROCESS-reward frontier (ExecVerify, StepCodeReasoner) rewards correct runtime-value PREDICTION, and process-reward/faithfulness work (Let's Verify Step by Step, Math-Shepherd, CodePRM, TruthRL, Stop Rewarding Hallucinated Steps, Proof-of-Use) rewards grounded steps / penalizes ungrounded assertion and decorative tool use — but in math CoT and RAG, or for static code, not for an agent's interactive debugging trajectory. (4) Trajectory-SFT (SWE-Gym, ToRA, STaR/RFT, Self-Debug) shows a few hundred agent traces are high-value training data, but every published curation pipeline filters on OUTCOME (correct final patch), never on grounding density or tool-friction. The GAP our finding sits in has three unclaimed pieces: (a) grounded-observation interactive trajectories as SFT/PRM material selected/compressed on GROUNDING and stripped of the ~13x tool-friction — no one curates traces this way; (b) an OBSERVE-BEFORE-ASSERT reward for an AGENT — reward asserting only runtime facts it actually tool-observed and penalize confabulated I/O, which is distinct from ExecVerify/StepCodeReasoner rewarding correct value PREDICTION (a model can predict a value right by luck yet still be ungrounded, and our data shows confabulation persists even WITH debugger access, 2.0→1.8, so the target is the assert-without-observe behavior, not value correctness); (c) debugger-in-the-loop RL with WEIGHT UPDATES is essentially unclaimed — debug-gym proposes it, InspectCoder's \"process rewards\" only steer inference-time search, LeDex does SFT+RL but on self-generated explanations with no runtime debugger in the loop. Two further under-measured items our work supplies: confabulation-RATE over interactive agentic trajectories (CodeHalu/CRUXEval measure static generations / value-prediction, not mid-trajectory assertion of unobserved I/O), and the isolated debugger-vs-plain-reading comparison at matched difficulty and matched tokens (the optimistic headlines compare against static/print baselines with forced debug-first).",
+      "most_relevant": [
+        {
+          "title": "Debug2Fix: Can Interactive Debugging Help Coding Agents Fix More Bugs? (Microsoft, arXiv 2602.18571)",
+          "url": "https://arxiv.org/abs/2602.18571",
+          "why": "The closest existing experiment and the anchor to set our work against. It independently reproduces our adoption dynamics (direct debug-tool exposure ~9% adoption and degrades Sonnet -14.8%; forced debug-first ~99%) and quantifies the token tax (~400k tokens/~33 steps via a subagent). But its headline (+13-22% pass rate) is measured against a static/print-debugging baseline with forced debug-first. Our finding is the isolating counterpoint it skips: debugger vs PLAIN READING at matched difficulty, where reading matches its pass rate at ~half the tokens. Cite as strongest prior; same adoption, opposite outcome verdict once you control for reading and tokens."
+        },
+        {
+          "title": "debug-gym: A Text-Based Environment for Interactive Debugging (Microsoft Research, arXiv 2503.21557)",
+          "url": "https://arxiv.org/abs/2503.21557",
+          "why": "The canonical environment behind this whole setup, and it states our SFT/process-RL conclusion as an OPEN PROBLEM: it blames low natural debugger uptake on the scarcity of sequential debugging traces in pretraining and proposes RL/fine-tuning an info-seeking model on debugging trajectories as future work — but does not do it. Establishes that debugger-in-the-loop training is the missing experiment our idea set targets."
+        },
+        {
+          "title": "Stop Rewarding Hallucinated Steps: Faithfulness-Aware Step-Level RL (arXiv 2602.05897)",
+          "url": "https://arxiv.org/pdf/2602.05897",
+          "why": "The single closest reward-side analog to observe-before-assert: a step-level reward that only reinforces steps grounded in available information plus an information-gain penalty docking steps that introduce unsupported content. It is our idea 1 (grounding reward) and idea 4 (info-gain over observations) already built — but for small reasoning models on math/QA, not for an agent's runtime-value assertions in a debugger trajectory. Defines the mechanism to port."
+        },
+        {
+          "title": "TruthRL: Incentivizing Truthful LLMs via RL (Meta, arXiv 2509.25760)",
+          "url": "https://arxiv.org/abs/2509.25760",
+          "why": "The clean reward template for penalizing confabulation: a ternary correct/hallucination/abstention reward that makes confident-but-unobserved claims negative and rewards 'I don't know / need to check' under uncertainty. This is the exact reward shape to apply to our CONFABULATE metric (assert unobserved I/O as fact), and its abstention term is what our read-only traces lack."
+        },
+        {
+          "title": "Proof-of-Use: Mitigating Tool-Call Hacking in Deep Research Agents (arXiv 2510.10931)",
+          "url": "https://arxiv.org/abs/2510.10931",
+          "why": "The tool-call analog of our 'rdbg was post-hoc verification, the aha came from reading in 80% of runs' observation. It penalizes decorative tool use and adds an Answer-Support Alignment reward tying the final answer to actually-retrieved evidence. Directly motivates rewarding fixes causally grounded in a debugger observation rather than rewarding debugger invocation, and underpins the 'did the observation cause the fix?' counterfactual in idea 4."
+        },
+        {
+          "title": "ExecVerify / StepCodeReasoner: RL with rewards over runtime state (arXiv 2603.11226 / 2605.11922)",
+          "url": "https://arxiv.org/abs/2603.11226",
+          "why": "The 2026 state-reward frontier our grounding analysis sits in: they reward correctly PREDICTING runtime variable values/control-flow (ExecVerify) and add an intra-trajectory execution-state process reward alongside pass/fail (StepCodeReasoner's Bi-Level GRPO). Crucial honesty anchor: they reward value-prediction CORRECTNESS, not asserting-only-what-was-observed. Our contribution is the distinction (grounded-because-observed vs right-by-luck) and evidence it matters (confabulation survives debugger access)."
+        },
+        {
+          "title": "R2E-Gym: Procedural Environments and Hybrid Verifiers (UC Berkeley, arXiv 2504.07164)",
+          "url": "https://arxiv.org/abs/2504.07164",
+          "why": "The strongest external mirror of debugger-vs-reading: execution-based verifiers plateau (~42-43%, 'low distinguishability') and only combining them with an execution-FREE learned trajectory verifier reaches 51%. This both (a) validates that execution-free reading can rival execution on outcome (our result) and (b) is the precedent for idea 6 — a learned trajectory verifier, here made grounding-aware."
+        },
+        {
+          "title": "CodePRM: Execution-Feedback-enhanced Process Reward Model for Code (ACL Findings 2025)",
+          "url": "https://aclanthology.org/2025.findings-acl.428/",
+          "why": "Direct precedent that execution results make higher-quality step-level PRM training signal than un-executed speculation — the 'debugger traces carry 3.2x more grounded observations' half of our analysis, operationalized as a PRM. It is the recipe to reuse for turning our rich debugger trajectories into a process-reward model, with the confabulation term as the added ingredient."
+        },
+        {
+          "title": "Teaching Large Language Models to Self-Debug (Chen et al., ICLR 2024, arXiv 2304.05128)",
+          "url": "https://arxiv.org/abs/2304.05128",
+          "why": "Its ablation independently corroborates our most surprising qualitative result: much of the self-debug gain comes from the model RE-EXPLAINING the code, not from raw execution output — i.e., the fix aha comes from reading while the runtime signal is confirmatory. Strong support that the debugger's marginal value is not where the outcome is won."
+        },
+        {
+          "title": "CodeHalu: Investigating Code Hallucinations via Execution-based Verification (AAAI 2025, arXiv 2405.00253)",
+          "url": "https://arxiv.org/abs/2405.00253",
+          "why": "The closest published operationalization of our confabulation construct (models assert behavior execution contradicts; execution is the ground-truth detector), plus a taxonomy and benchmark. But it scores STATIC generations, not interactive debugging trajectories — so it is the template for idea 5's grader while leaving the mid-trajectory 'assert unobserved I/O as fact' failure mode unmeasured, which is our gap."
+        }
+      ],
+      "ideas": [
+        {
+          "idea": "Confabulation-rate as a first-class eval and reward signal for interactive debugging trajectories: an automated grader that, over a run, extracts every runtime-factual claim the agent makes (a variable's value, a struct field, which branch executed, an I/O result), classifies each as OBSERVED (backed by a debugger/tool output earlier in the trace), CONFABULATED-CORRECT, or CONFABULATED-WRONG against a ground-truth oracle obtained by re-running the same task under rdbg/instrumentation, and reports a confabulation rate plus an abstention-aware score (credit 'I need to check X' over confident-wrong, per TruthRL). Publish it across all archived read-only vs debugger vs forced-debug runs.",
+          "builds_on": "Our hand-labeled 2.0->1.8 confabulation finding and the read-only-actively-confabulates result; CodeHalu's execution-based hallucination detector/taxonomy; CRUXEval-style value grounding; TruthRL's abstention-aware scoring.",
+          "novelty": "CodeHalu/CRUXEval score STATIC generations or isolated value-prediction; no one measures the rate at which an AGENT asserts unobserved runtime facts as true mid-trajectory, nor scores it abstention-aware. This is the eval that pass@k is structurally blind to and that every idea below optimizes against. It is the cheapest, most foundational, and most directly novel piece.",
+          "how_to_test": "Build the grader as an LLM-judge over existing events.jsonl + transcript pairs in runs_archive/; get the oracle by replaying each solved task under scripts/rust_debug.py to capture true values at the lines the agent discusses. Validate: the grader's per-run confab count must reproduce the hand-labeled subset (target ~2.0 read-only, ~1.8 debugger). No training, no new rollouts. Then report confab-rate x arm across all runs.",
+          "effort": "Low (metric + validation on existing runs; days, no GPUs)."
+        },
+        {
+          "idea": "Observe-before-assert grounding process reward: an RL reward term (GRPO/PPO on top of the existing outcome reward) that, per trajectory, adds positive reward for runtime-factual claims that were actually tool-observed before assertion and a penalty for confabulated I/O (assert-without-observe), using the idea-1 grader as the verifier. Reward the ACT of grounding, not the correctness of a guess — an unobserved-but-lucky-correct value still gets penalized; abstaining and then checking is rewarded.",
+          "builds_on": "Our finding that confabulation persists even with debugger access (2.0->1.8), so the target must be the assert-without-observe behavior; TruthRL (ternary reward), Stop Rewarding Hallucinated Steps (faithfulness + info-gain penalty), Proof-of-Use (answer-support alignment), CodePRM (execution-feedback PRM), ExecVerify/StepCodeReasoner (runtime-state rewards).",
+          "novelty": "ExecVerify/StepCodeReasoner reward correct value PREDICTION; TruthRL/Stop-Rewarding target math/QA faithfulness. None reward an AGENT for asserting only runtime facts it tool-observed within an interactive debugging trajectory, and none separate grounded-because-observed from right-by-luck. This is the missing 'debugger-in-the-loop, weight-update' experiment debug-gym names but does not run. It predicts our specific split: this reward is net-positive as process signal precisely where outcome-only reward is blind.",
+          "how_to_test": "Stage 1 (cheap, no RL): rejection-sampling / best-of-n proxy — sample K trajectories per fd/tsz task, rank by (verify_passed AND low-confab), SFT a small open model on winners, measure whether held-out confab drops without hurting pass rate. Stage 2 (expensive): GRPO with reward = pass/fail + lambda*(observed_claims - confabulated_claims); sweep lambda; watch for reward-hacking (agent emitting trivial redundant observations to farm the grounding term — which motivates idea 4).",
+          "effort": "Low->high (SFT proxy cheap; full RL needs a trainable open-weights agent + rollout infra)."
+        },
+        {
+          "idea": "SFT on friction-filtered, grounding-distilled debugger traces: programmatically rewrite each debugger trajectory into a minimal grounded-reasoning trace — keep the (runtime observation -> the inference it licensed -> the edit) core, delete failed/retried tool calls, build churn, and daemon/socket friction (the ~13x token tax) — then SFT on these compressed traces. Produce a 'friction-normalized grounded trace' dataset from existing runs.",
+          "builds_on": "Our findings that debugger traces carry 3.2x more grounded observations, that ~13x of the extra tokens is tool friction, and that the aha came from reading in 80% of runs; SWE-Gym (<500 traces -> +14%), ToRA (rejection-filter tool traces + output-space shaping), STaR/RFT, Self-Debug (gain from re-explaining, not raw execution).",
+          "novelty": "Every published curation pipeline (SWE-Gym, ToRA, STaR) filters on OUTCOME (correct final patch). No one selects or COMPRESSES traces on grounding density while stripping tool friction. This is a concrete data-processing contribution that operationalizes 'richer learning material' while removing exactly the cost that made the debugger net-negative for outcome. It tests whether the value is the observations or the tool-driving procedure (Self-Debug's ablation suggests the former).",
+          "how_to_test": "Deterministically transform archived debugger runs: parse events.jsonl, drop tool calls with error/retry status and their echo, keep the observation payloads and the surrounding reasoning + final diff. SFT a small open model on N=few-hundred distilled traces; eval on held-out fd/tsz for pass rate, confab-rate (idea 1), and tokens-to-fix. Ablate against: (a) SFT on raw un-stripped debugger traces, (b) SFT on read-only traces. Hypothesis: distilled traces match raw on pass rate, beat both on confab, at far fewer tokens.",
+          "effort": "Medium (trace-transform script + one small SFT run + eval)."
+        },
+        {
+          "idea": "Reward DISAMBIGUATING observations, not redundant ones (information-gain shaping over debugger steps): reward a debugger observation in proportion to how much it shifts the agent's posterior over competing root-cause hypotheses / candidate patches, and give ~zero or negative reward to observations that were already predictable (redundant post-hoc verification). Estimate belief-shift self-supervised: sample K candidate patches conditioned on the trace BEFORE vs AFTER the observation and measure the change in the patch distribution.",
+          "builds_on": "Our finding that the debugger barely reduces confabulation and that rdbg functioned as post-hoc verification in ~80% of runs (i.e., most observations were belief-confirming, not belief-changing); InspectCoder (process rewards from targeted state inspection), Stop Rewarding Hallucinated Steps (info-gain penalty), Proof-of-Use (penalize decorative tool use), LEVER (execution features carry correctness signal).",
+          "novelty": "InspectCoder rewards any helpful debugger feedback; Stop-Rewarding penalizes unsupported content. No one rewards observations by their DISAMBIGUATION value — resolving genuine uncertainty between hypotheses — using the model's own hypothesis distribution as a label-free info-gain signal. It directly attacks the 'post-hoc verification' pathology and is the natural anti-reward-hacking guard for idea 2 (prevents farming trivial groundings).",
+          "how_to_test": "Purely offline first: on archived debugger traces, at each observation sample K=8 candidate patches before vs after and quantify distribution shift (edit-distance clustering / agreement drop). Test the core hypothesis without any RL: do high-belief-shift observations predict eventual solve while redundant ones do not? If yes, the shaping signal is validated; then fold it into idea 2's reward as a multiplier on the grounding term.",
+          "effort": "Medium (K-sample rollouts per observation on existing traces; offline correlational study before RL)."
+        },
+        {
+          "idea": "Learned 'when to debug' gating policy / curriculum that pays the debugger's token cost only on bugs where reading is provably insufficient. Label existing tasks as reading-sufficient vs runtime-decisive (did read-only solve it? did the debugger aha cite a runtime observation?), train a cheap classifier from the bug report + first cargo error to predict runtime-decisive, and gate rdbg invocation (or curriculum-order debugger training) on that prediction.",
+          "builds_on": "Our findings that the aha came from reading in 80% of runs and that the debugger is net-neutral-but-expensive on outcome; Debug2Fix's all-or-nothing forced-vs-optional dichotomy; Efficient Dynamic Analysis (token-efficiency as the bottleneck).",
+          "novelty": "All prior work is all-or-nothing: force debug-first (Debug2Fix, degrades on easy bugs) or leave adoption to chance (0-9%). No one learns a SELECTIVE gating policy that predicts per-bug whether runtime grounding is decisive. This converts our 'net-negative for outcome-only RL' into 'net-positive on the ~20% subset where runtime obs is decisive,' recovering the value while controlling the ~13x cost — the mechanism the field's 'debugger is expensive' consensus is missing.",
+          "how_to_test": "Fully offline on archived runs: derive the runtime-decisive label by comparing read-only vs debugger solve per task and whether the aha referenced a runtime value. Train a logistic/prompt classifier on (prompt.md + first cargo error -> decisive?). Simulate a gated policy over existing runs: pay debugger tokens only on predicted-decisive tasks, else use read-only. Metric: total tokens vs pass rate against always-debug and never-debug. Cheap because it reuses existing trajectories.",
+          "effort": "Low->medium (labeling + a light classifier + offline replay simulation)."
+        },
+        {
+          "idea": "Grounding-aware learned trajectory verifier for best-of-n at inference: train an execution-free verifier that scores candidate patches using features derived from the trajectory's grounding density and confabulation flags (from idea 1), then use it to rerank K sampled solutions. This exploits the debugger traces as rich VERIFIER-TRAINING data without paying the debugger cost for every task at deploy time.",
+          "builds_on": "R2E-Gym (execution-based and execution-free verifiers are complementary, combine to 51%), SWE-Gym's trajectory verifier, muCode's dense verifier; our finding that grounded traces carry more correctness-bearing signal (3.2x observations) that pass/fail 'low distinguishability' misses.",
+          "novelty": "R2E-Gym's execution-free verifier reads the trajectory but was not built around grounding-vs-confabulation features. Making grounding density and confabulation the verifier's explicit input features — and showing they add distinguishability beyond pass/fail — is new, and it is the deploy-time-cheap way to cash in the debugger's richness (train on rich traces, rerank without a live debugger).",
+          "how_to_test": "From archived runs, featurize each trajectory (observed-claim count, confab count, belief-shift from idea 4, tool-friction ratio) and train a small classifier to predict solved. Measure best-of-n resolve-rate lift on held-out fd/tsz vs a pass/fail-only verifier and vs R2E-Gym-style execution-free baseline. If grounding features add lift beyond outcome features, the debugger's value is captured as verifier signal, per our thesis.",
+          "effort": "Medium (featurization + small verifier + best-of-n eval on existing rollouts)."
+        }
+      ]
+    }
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "Search"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 2,
+      "title": "Synthesize"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "search:debugger-envs",
+      "phaseIndex": 1,
+      "phaseTitle": "Search",
+      "agentId": "aaf6f1f2005ff2d87",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783016017182,
+      "queuedAt": 1783016017177,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "promptPreview": "Our own finding (to ground the search): we benchmarked giving a coding agent (Claude Code, Opus) a runtime debugger (rdbg) on Rust bug-fixes. Adoption is 0% under a neutral prompt, ~100% under a forceful one. But on outcome (test-pass), reading beats the debugger — same pass rate at ~half the tokens. A grounding analysis of trajectories: debugger traces carry 3.2x more grounded runtime observation…",
+      "lastProgressAt": 1783016244802,
+      "tokens": 36967,
+      "toolCalls": 20,
+      "durationMs": 227620,
+      "resultPreview": "{\"works\":[{\"title\":\"debug-gym: A Text-Based Environment for Interactive Debugging\",\"venue_or_org\":\"Microsoft Research (Montreal / Froggy team); arXiv 2503.21557\",\"year\":\"2025\",\"url\":\"https://arxiv.org/abs/2503.21557\",\"what\":\"An open-source text environment that hands an LLM agent real debugging tools (pdb, view, eval, rewrite, listdir) so it can set breakpoints, step, and print runtime variable va…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "search:execution-feedback-rl",
+      "phaseIndex": 1,
+      "phaseTitle": "Search",
+      "agentId": "a9fad8bdc69cd1734",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783016017182,
+      "queuedAt": 1783016017177,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "promptPreview": "Our own finding (to ground the search): we benchmarked giving a coding agent (Claude Code, Opus) a runtime debugger (rdbg) on Rust bug-fixes. Adoption is 0% under a neutral prompt, ~100% under a forceful one. But on outcome (test-pass), reading beats the debugger — same pass rate at ~half the tokens. A grounding analysis of trajectories: debugger traces carry 3.2x more grounded runtime observation…",
+      "lastProgressAt": 1783016224591,
+      "tokens": 29653,
+      "toolCalls": 15,
+      "durationMs": 207408,
+      "resultPreview": "{\"works\":[{\"title\":\"RLEF: Grounding Code LLMs in Execution Feedback with Reinforcement Learning\",\"venue_or_org\":\"Meta AI (FAIR) — Gehring, Zheng, Copet, Carbonneaux, Cohen, Synnaeve; ICML 2025\",\"year\":\"2024/2025\",\"url\":\"https://arxiv.org/abs/2410.02089\",\"what\":\"End-to-end multi-turn PPO that repeatedly prompts the LLM to solve a competitive-programming problem, inserts execution feedback (public-t…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "search:process-grounding-reward",
+      "phaseIndex": 1,
+      "phaseTitle": "Search",
+      "agentId": "ae9e559cd44c54f1b",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783016017183,
+      "queuedAt": 1783016017177,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "promptPreview": "Our own finding (to ground the search): we benchmarked giving a coding agent (Claude Code, Opus) a runtime debugger (rdbg) on Rust bug-fixes. Adoption is 0% under a neutral prompt, ~100% under a forceful one. But on outcome (test-pass), reading beats the debugger — same pass rate at ~half the tokens. A grounding analysis of trajectories: debugger traces carry 3.2x more grounded runtime observation…",
+      "lastProgressAt": 1783016189401,
+      "tokens": 28207,
+      "toolCalls": 14,
+      "durationMs": 172218,
+      "resultPreview": "{\"works\":[{\"title\":\"Let's Verify Step by Step\",\"what\":\"OpenAI's foundational study showing that process supervision (rewarding each intermediate reasoning step) substantially outperforms outcome supervision on MATH, and releases PRM800K, 800K human step-level correctness labels.\",\"relevance\":\"Directly grounds your outcome-only-RL vs process-reward-RL framing: it is the canonical evidence that step…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 4,
+      "label": "search:trajectory-data-hallucination",
+      "phaseIndex": 1,
+      "phaseTitle": "Search",
+      "agentId": "aac7c25ef369baa6a",
+      "agentType": "general-purpose",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783016017183,
+      "queuedAt": 1783016017177,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "promptPreview": "Our own finding (to ground the search): we benchmarked giving a coding agent (Claude Code, Opus) a runtime debugger (rdbg) on Rust bug-fixes. Adoption is 0% under a neutral prompt, ~100% under a forceful one. But on outcome (test-pass), reading beats the debugger — same pass rate at ~half the tokens. A grounding analysis of trajectories: debugger traces carry 3.2x more grounded runtime observation…",
+      "lastProgressAt": 1783016212322,
+      "tokens": 31642,
+      "toolCalls": 14,
+      "durationMs": 195139,
+      "resultPreview": "{\"works\":[{\"title\":\"Training Software Engineering Agents and Verifiers with SWE-Gym\",\"venue_or_org\":\"UC Berkeley / CMU / UIUC (Pan, Wang, Neubig, Jaitly, Ji, Suhr, Zhang); ICML 2025\",\"year\":\"2024\",\"url\":\"https://arxiv.org/abs/2412.21139\",\"what\":\"Open training environment of 2.4K real repo tasks; SFT on <500 GPT-4o/Claude-3.5 agent trajectories yields +14% absolute on SWE-Bench Verified with a 32B …"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 5,
+      "label": "synthesize",
+      "phaseIndex": 2,
+      "phaseTitle": "Synthesize",
+      "agentId": "a6b6c269938eb8cfe",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783016244808,
+      "queuedAt": 1783016244803,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "The literature clusters into four lines that surround our f…",
+      "promptPreview": "Our own finding (to ground the search): we benchmarked giving a coding agent (Claude Code, Opus) a runtime debugger (rdbg) on Rust bug-fixes. Adoption is 0% under a neutral prompt, ~100% under a forceful one. But on outcome (test-pass), reading beats the debugger — same pass rate at ~half the tokens. A grounding analysis of trajectories: debugger traces carry 3.2x more grounded runtime observation…",
+      "lastProgressAt": 1783016472077,
+      "tokens": 52390,
+      "toolCalls": 6,
+      "durationMs": 227269,
+      "resultPreview": "{\"landscape\":\"The literature clusters into four lines that surround our finding without occupying its center. (1) Interactive-debugger-as-agent-environment (debug-gym, Debug2Fix, ChatDBG, InspectCoder, LDB) has made \\\"an LLM autonomously drives pdb/gdb/lldb to read runtime state\\\" a real subarea; our Rust/rdbg (DAP/lldb-dap) setup fits squarely in it and is one of very few using a Rust debugger. T…"
+    }
+  ],
+  "totalTokens": 178859,
+  "totalToolCalls": 69
+}
