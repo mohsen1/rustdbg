@@ -1,0 +1,129 @@
+[
+  {
+    "sha": "8c13977ef8224354179e48d290d474bdd924c163",
+    "parent": "59871868be2f0a2fee8454b1e2e031645e98b250",
+    "crate": "tsz-checker",
+    "test_files": [
+      "crates/tsz-checker/tests/literal_widening_display_tests.rs"
+    ],
+    "cargo_files_to_checkout": [],
+    "nextest_filter": "-p tsz-checker --test literal_widening_display_tests",
+    "bug": "The TS2559/TS2560 weak-type diagnostic ('has no properties in common with type') rendered the source as the un-widened fresh object literal ('{ c: 1 }') instead of its widened apparent type ('{ c: number }'), diverging from tsc. Fix routes the TS2559 source slot through the shared widen_fresh_object_literal_properties_for_display helper.",
+    "kind": "diagnostic-display (TS2559 fresh-object-literal widening)",
+    "nontest_loc": 8
+  },
+  {
+    "sha": "c6f258fba098c165b21572b28edcb915f4feec90",
+    "parent": "ace4e34b71c6b36d052116345717d1e2c68da992",
+    "crate": "tsz-checker",
+    "test_files": [
+      "crates/tsz-checker/tests/union_source_structural_elaboration_tests.rs"
+    ],
+    "cargo_files_to_checkout": [],
+    "nextest_filter": "-p tsz-checker --test union_source_structural_elaboration_tests",
+    "bug": "For a failing union source (e.g. 'number | undefined' -> 'string'), tsz elaborated the wrong constituent ('number') because it iterated stored printer order (nullish last) instead of tsc's relation order (nullish first). Fix adds reorder_union_members_nullish_first and iterates it at the elaboration site only.",
+    "kind": "diagnostic-elaboration (nullish union-member selection order)",
+    "nontest_loc": 35
+  },
+  {
+    "sha": "da2f05e5beba7574054837dc3c127a8ef1961cd7",
+    "parent": "e0ab393dcc66efc6d1c6d427c620b60e6c8fcb88",
+    "crate": "tsz-checker",
+    "test_files": [
+      "crates/tsz-checker/tests/template_intrinsic_literal_union_alias_display_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test template_intrinsic_literal_union_alias_display_tests",
+    "bug": "A type alias whose body is a template-literal (`${\"a\"|\"b\"}-x`) or string-mapping intrinsic (Capitalize<...>) reducing to a finite literal union was printed by its ALIAS NAME instead of the expanded union that tsc shows. Fix marks such bodies 'computed' in alias_declaration_body_is_computed so is_computed_body skips the alias name.",
+    "kind": "diagnostic-display (template-literal / string-intrinsic alias expansion)",
+    "nontest_loc": 27
+  },
+  {
+    "sha": "b483d46cf78418c634e15a6735944a0feb4bf922",
+    "parent": "61b76fb391210a615d160b79c4ac61af3ce6054f",
+    "crate": "tsz-checker",
+    "test_files": [
+      "crates/tsz-checker/tests/ts2375_exact_optional_property_display_tests.rs"
+    ],
+    "cargo_files_to_checkout": [],
+    "nextest_filter": "-p tsz-checker ts2375_exact_optional_property_display_tests",
+    "bug": "Under exactOptionalPropertyTypes, TS2375 on the variable-assignment and array-element paths dropped the nested relation-reason elaboration ('Types of property X are incompatible. / Type undefined is not assignable to type number.') because it used DiagnosticRenderRequest::simple. Fix routes those paths through analyze_assignability_failure like the sibling TS2379 argument path.",
+    "kind": "diagnostic-elaboration (TS2375 property-incompatibility chain)",
+    "nontest_loc": 49
+  },
+  {
+    "sha": "1d7fad953459e872e04eca41ff78375aab8885c5",
+    "parent": "b4bdd1eb3b6ff60f58898ad902b2e3287be9015f",
+    "crate": "tsz-cli",
+    "test_files": [
+      "crates/tsz-cli/tests/cannot_find_name_value_suggestion_cli_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-cli/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-cli --test cannot_find_name_value_suggestion_cli_tests",
+    "bug": "search_global_candidates (error_reporter/suggestions.rs) gated the intrinsic keyword candidates on `meaning & TYPE`, which is nonzero even in pure value position because VALUE and TYPE flag masks overlap (CLASS/ENUM/ENUM_MEMBER). This leaked lowercase type keywords into value position (numbr->number instead of the value constructor Number) and never offered the global value symbol `undefined` (udefined gave bare TS2304). Fix gates each keyword set on meaning-exclusive bits.",
+    "kind": "behavioral-suggestion",
+    "nontest_loc": 49
+  },
+  {
+    "sha": "b9898e555856ec6786be9a0a0cc762adc9ce04e1",
+    "parent": "c1598dd1c385c9dfd71e17ba641d365693010977",
+    "crate": "tsz-checker",
+    "test_files": [
+      "crates/tsz-checker/src/tests/method_return_type_elaboration_tests.rs"
+    ],
+    "cargo_files_to_checkout": [],
+    "nextest_filter": "-p tsz-checker method_return_type_elaboration_tests",
+    "bug": "A function-typed-property member whose call signatures differ only in return type (compute: () => string vs () => number) rendered the generic `Types of property 'compute' are incompatible.` header plus a `() => S`/`() => T` function-type line, which no tsc version emits. tsc collapses BOTH method and property syntax into a single TS2201 frame `The types returned by 'compute()' are incompatible...`. Fix routes the ReturnTypeMismatch reason uniformly through render_member_return_type_mismatch (suffix `()` for zero-arg, `(...)` otherwise) and removes the dead is_method branch/helpers.",
+    "kind": "diagnostic display/message elaboration",
+    "nontest_loc": 178
+  },
+  {
+    "sha": "7d16eacbb7ea4356660a7f937e5ff97f2e46e67b",
+    "parent": "84dac9e16948ff0109258acd58b523bbe8112e78",
+    "crate": "tsz-checker",
+    "test_files": [
+      "crates/tsz-checker/tests/using_disposable_elaboration_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test using_disposable_elaboration_tests",
+    "bug": "tsz blanket-cleared every all-symbol missing-property list, collapsing object relation failures on late-bound-symbol members (e.g. [Symbol.dispose]) to a flat TypeMismatch with no member listed and no elaboration. A failed sync `using` (TS2850) thus lost tsc's nested \"Property '[Symbol.dispose]' is missing in type 'X' but required in type 'Disposable'.\" tail. Fix: keep symbol missing members for non-array targets, narrow the MissingProperty guard to __js_ctor_brand_*, and route sync using through the assignability gateway.",
+    "kind": "behavioral-diagnostic-message",
+    "nontest_loc": 79
+  },
+  {
+    "sha": "1ac2fdf2111ef1c9a85773f78aac716275a32fc1",
+    "parent": "50e400abcf82bed666fef4f2148663e6651cceef",
+    "crate": "tsz-checker",
+    "test_files": [
+      "crates/tsz-checker/tests/await_suspension_condition_narrowing_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test await_suspension_condition_narrowing_tests",
+    "bug": "condition_antecedent_requires_defer in the backward flow walk (flow/control_flow/core/flow_traversal.rs) recognized CALL/ASSIGNMENT/LABEL/ARRAY_MUTATION antecedents as deferrable but not AWAIT_POINT/YIELD_POINT, so an await/yield suspension between a narrowing assignment and a following `if` re-widened the reference to its declared type, emitting a false TS18048 (and a cascading TS2322 on the inferred Promise<T|undefined> return).",
+    "kind": "behavioral-narrowing",
+    "nontest_loc": 28
+  },
+  {
+    "sha": "1dc83466ff2eb13859fe72d236a7c5c4f024fa5d",
+    "parent": "a53cb694b17b66c23d7d7febd342128830444cc4",
+    "crate": "tsz-checker",
+    "test_files": [
+      "crates/tsz-checker/tests/nolib_user_array_union_member_access_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test nolib_user_array_union_member_access_tests",
+    "bug": "Under --noLib, register_function_def_ids_early (and boxed/array base registration) bailed on !has_lib_loaded(), so a user-declared global `interface Array<T>` was never wired as the array base type. A union of array-likes (number[]|string[]).every(...) then reported a false TS2339 plus a cascading TS7006 on the callback. Fix adds `&& !self.has_user_declared_registerable_global()` to the early-return gate.",
+    "kind": "behavioral diagnostic (false-positive TS2339/TS7006)",
+    "nontest_loc": 6
+  }
+]

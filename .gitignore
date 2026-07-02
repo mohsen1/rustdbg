@@ -4,3 +4,5 @@
 
 # benchmark scratch
 benchmarks/results/
+benchmarks/results-repo/runs.json
+benchmarks/results-repo/work/
