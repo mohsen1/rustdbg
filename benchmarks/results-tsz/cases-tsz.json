@@ -73,5 +73,35 @@
     "test_stems": [
       "flow_narrowing_finalization_tests"
     ]
+  },
+  {
+    "sha": "1226c7c2680c00e394cb15e3f83360ddbf88850a",
+    "parent": "1f07b8a42ff810b0debae69002630c916849ae83",
+    "subject": "fix(solver,checker): relate same-class instantiations with identical-or-any type args (kysely $asScalar TS2416) (#13258)",
+    "test_files": [
+      "crates/tsz-checker/tests/class_member_nominal_any_arg_relation_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test class_member_nominal_any_arg_relation_tests",
+    "test_stems": [
+      "class_member_nominal_any_arg_relation_tests"
+    ]
+  },
+  {
+    "sha": "4aac798dea91b011762a346b5f016006df864397",
+    "parent": "8bc924c9e4ded38df62a4676ed6175575a376cea",
+    "subject": "fix(checker): stop mid-resolution subclass constructor degradation (zod TS2554) (#13151)",
+    "test_files": [
+      "crates/tsz-checker/tests/self_referential_class_ctor_window_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test self_referential_class_ctor_window_tests",
+    "test_stems": [
+      "self_referential_class_ctor_window_tests"
+    ]
   }
 ]

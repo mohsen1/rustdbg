@@ -25,3 +25,4 @@ benchmarks/rlenv/dataset.jsonl
 benchmarks/results-tsz/transcripts/
 benchmarks/results-tsz/transcripts-broken/
 benchmarks/results-tsz/work/
+benchmarks/tsz-integration-notes.md

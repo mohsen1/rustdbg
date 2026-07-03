@@ -232,6 +232,24 @@ pub fn abs(path: &str) -> String {
 pub fn own_process_group(cmd: &mut Command) {
     use std::os::unix::process::CommandExt;
     cmd.process_group(0);
+    // On Linux, also ask the kernel to SIGKILL the adapter when the daemon dies —
+    // even on the daemon's own SIGKILL/OOM/crash, where no cleanup code runs. The
+    // adapter is in its own process group (above) so it would otherwise orphan;
+    // codelldb can hold ~20 GB of symbols on a large repo, so an orphan is a real
+    // memory leak that can OOM the next run. (macOS has no PDEATHSIG; there the
+    // daemon reaps on relaunch/`rdbg down`, and callers should reap on hard-kill.)
+    #[cfg(target_os = "linux")]
+    {
+        extern "C" {
+            fn prctl(option: i32, a2: u64, a3: u64, a4: u64, a5: u64) -> i32;
+        }
+        unsafe {
+            cmd.pre_exec(|| {
+                prctl(1, 9, 0, 0, 0); // PR_SET_PDEATHSIG = 1, SIGKILL = 9
+                Ok(())
+            });
+        }
+    }
 }
 
 #[cfg(not(unix))]

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- SKILL now leads with a **"When to reach for it (and when not)"** triage: read first;
+  launch only for a *runtime* question in code too large to follow by eye; skip the
+  debugger for small/localized bugs, **missing-output** bugs (nothing to trace), and
+  blind fix-iteration; keep launches few. This is the lever against token waste — on the
+  tsz benchmark it cut a missing-diagnostic case from **+192% tokens (17 exploratory
+  launches) to +26% (1 launch)**, still fixed. General (not repo-specific).
+- The debug adapter now **dies with the daemon on Linux** (`PR_SET_PDEATHSIG`), even on
+  the daemon's own SIGKILL/OOM/crash where no cleanup code runs. Prevents a ~20 GB
+  codelldb (its symbol footprint on a large repo) from orphaning into a memory leak that
+  OOMs the next run. (macOS has no PDEATHSIG; there the daemon still reaps on
+  relaunch/`rdbg down`.)
+
 - `rdbg status` now reports the selected `adapter` (absolute path) — the live
   session's adapter, or the one `find_lldb_dap` would pick when no session is
   running yet. Lets you confirm which adapter is in play (bundled codelldb for

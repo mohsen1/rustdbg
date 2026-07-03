@@ -1,6 +1,6 @@
 ---
 name: rust-debugger
-description: Debug a Rust program or failing test with rdbg — set breakpoints (line, function, conditional, hit-count, panic, or watchpoint), run and step, read locals as real Rust values (Vec/String/struct/enum), change a variable mid-run, and jump to definition/hover/references via rust-analyzer. Use when a Rust program returns a wrong value or panics and you need to see runtime state instead of adding println!/dbg!, to stop where a panic is raised, to watch a value change, or to find where a symbol is defined and used.
+description: Debug a Rust program or failing test with rdbg — set breakpoints (line, function, conditional, hit-count, panic, or watchpoint), run and step, read locals as real Rust values (Vec/String/struct/enum), change a variable mid-run, and jump to definition/hover/references via rust-analyzer. Reach for it on a *runtime* question in large or complex code — a wrong computed value, an unexpected branch/type/state, or a panic — where reading and grep have stalled and you need to see actual runtime state instead of adding println!/dbg!. Read first for small, localized, or missing-output bugs a quick read already pins down; the debugger earns its cost mainly where the code is too large or the flow too tangled to trace by eye.
 ---
 
 # rust-debugger
@@ -11,6 +11,33 @@ info (the default `cargo build`). Run `rdbg` with no arguments for the full list
 
 Requires `rdbg` on `PATH` (`curl -fsSL https://azimi.me/rust-debugger-skill/install.sh | sh`),
 plus `rust-analyzer` and `lldb-dap`.
+
+## When to reach for it (and when not)
+
+Read first. The debugger earns its cost only on a question you can't answer by
+reading — and on a large repo every `launch` rebuilds, so a wasted debugging detour
+is expensive. Decide *before* you launch:
+
+**Reach for rdbg** when you have a **runtime question at a place you can name**:
+- a value is **wrong** and you need the real inputs/flow that produced it;
+- an **unexpected branch, type, or state** at runtime that reading can't pin down;
+- a **panic** — `rdbg debug --panic` lands on the culprit frame in one call;
+- you want to **test a fix live** with `set --then continue` before editing + rebuilding.
+The biggest wins: wrong or extra output you can break at and trace *backward* to the
+deciding code, in a codebase too large to follow by eye.
+
+**Don't launch — just read/grep — when**:
+- the failing test plus a quick read already point at the fix (small, localized bugs):
+  debugging only adds fixed build + session overhead;
+- the output is **missing** — nothing is emitted to break on, so finding the *absent*
+  check is a reading task; the debugger can't trace code that never ran;
+- you're **iterating on a candidate fix**: re-run the narrowed test, or validate the
+  hypothesis with `set --then continue` — don't re-`launch` after every edit.
+
+**Stay cheap.** Keep launches few: one session with several breakpoints, or one
+`trace`, beats re-launching (each rebuilds). If 2–3 probes haven't localized it, stop
+and go back to reading — you're probably at the wrong layer, and more debugging will
+only burn tokens.
 
 ## Start a session
 
