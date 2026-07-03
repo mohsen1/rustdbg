@@ -80,7 +80,7 @@ runs the program) have this shape:
 | `bt`     | `bt` (rendered backtrace) |
 | `list`   | `source` (rendered source window) |
 | `threads`| `threads` (rendered list) |
-| `status` | `session` (bool), `stopped` (bool), `lsp_ready` (bool), `cur_thread` (int or null), `threads` (int), `breakpoints` (int) |
+| `status` | `session` (bool), `adapter` (string path of the selected debug adapter, or null if none found), `stopped` (bool), `lsp_ready` (bool), `cur_thread` (int or null), `threads` (int), `breakpoints` (int) |
 | `where`  | `symbols`: array of `{"name", "container", "file", "line"}` |
 | `def` / `refs` | `locations`: array of `{"file", "line", "col"}` |
 | `hover`  | `hover` (string) |
