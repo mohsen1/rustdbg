@@ -39,8 +39,36 @@ case ":$PATH:" in
   *":$dir:"*) ;;
   *) echo "rdbg: add $dir to your PATH" >&2 ;;
 esac
-echo "rdbg: also needs rust-analyzer (rustup component add rust-analyzer) and a debug adapter." >&2
-echo "  Recommended: codelldb — it gives full Rust expression eval (comparisons, tuple .0," >&2
-echo "  method calls). Install the VS Code CodeLLDB extension or a release from" >&2
-echo "  github.com/vadimcn/codelldb, and put its 'codelldb' on PATH. Without it, rdbg falls" >&2
-echo "  back to lldb-dap (Xcode CLT / 'apt install lldb'), which does variable-path eval only." >&2
+command -v rust-analyzer >/dev/null 2>&1 || \
+  echo "rdbg: also install rust-analyzer for navigation:  rustup component add rust-analyzer" >&2
+
+# codelldb — the debug adapter, auto-installed so `eval` gets full Rust expression
+# eval (comparisons `a == b`, tuple `x.0`, method calls), not just variable paths.
+# Kept in its own dir so it finds its bundled liblldb; rdbg finds it automatically.
+cl_home="$HOME/.local/share/rdbg/codelldb"
+if [ -n "${RDBG_NO_CODELLDB:-}" ]; then
+  echo "rdbg: skipping codelldb (RDBG_NO_CODELLDB set) — rdbg will use lldb-dap if present" >&2
+elif [ -x "$cl_home/extension/adapter/codelldb" ] || command -v codelldb >/dev/null 2>&1; then
+  echo "rdbg: codelldb already present (full Rust expression eval available)" >&2
+else
+  case "$os" in Darwin) cl_os="darwin" ;; Linux) cl_os="linux" ;; *) cl_os="" ;; esac
+  case "$arch" in arm64|aarch64) cl_arch="arm64" ;; x86_64) cl_arch="x64" ;; *) cl_arch="" ;; esac
+  if [ -n "$cl_os" ] && [ -n "$cl_arch" ] && command -v unzip >/dev/null 2>&1; then
+    cl_url="https://github.com/vadimcn/codelldb/releases/latest/download/codelldb-${cl_os}-${cl_arch}.vsix"
+    echo "rdbg: installing codelldb (${cl_arch}-${cl_os}) for full Rust expression eval …" >&2
+    if curl -fsSL "$cl_url" -o "$tmp/codelldb.vsix"; then
+      rm -rf "$cl_home"; mkdir -p "$cl_home"
+      unzip -oq "$tmp/codelldb.vsix" -d "$cl_home"
+      chmod +x "$cl_home/extension/adapter/codelldb" 2>/dev/null || true
+      if [ -x "$cl_home/extension/adapter/codelldb" ]; then
+        echo "rdbg: codelldb installed to $cl_home" >&2
+      else
+        echo "rdbg: codelldb extract failed — install lldb-dap (Xcode CLT / 'apt install lldb') as a fallback" >&2
+      fi
+    else
+      echo "rdbg: codelldb download failed — install lldb-dap for variable-path eval, or re-run to retry" >&2
+    fi
+  else
+    echo "rdbg: needs unzip + a supported platform to auto-install codelldb; install codelldb or lldb-dap manually" >&2
+  fi
+fi

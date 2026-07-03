@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `install.sh` now auto-installs **codelldb** per-platform (into
+  `~/.local/share/rdbg/codelldb`, kept in its own dir so it finds its bundled liblldb),
+  and rdbg prefers it — so `eval` gets full Rust expression eval: comparisons
+  (`a == b`), tuple fields (`x.0`), and method calls, not just variable paths. Falls
+  back to lldb-dap if codelldb can't be fetched; skip with `RDBG_NO_CODELLDB=1`, or
+  point rdbg at an existing binary with `RDBG_CODELLDB=/path/to/codelldb`. (Measured as
+  the top friction when agents debug real large-repo bugs: an agent burned ~10 eval
+  calls fighting lldb-dap's C++ evaluator, then fell back to `eprintln`.)
 - One-shot panic triage: `rdbg debug --cargo <dir> [--bin|--test|--lib] --panic [-- ARGS]`
   (MCP `debug_panic`) builds, runs to the panic, and returns ONE bundle — the panic
   message, the first **user** stack frame (std/core panic machinery skipped) with its

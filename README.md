@@ -161,18 +161,15 @@ paused between an agent's tool calls. State lives in `.rdbg/` — add it to
 ## Roadmap
 
 Every command is one turn for an agent, so the theme is collapsing round-trips.
-Shipped so far: `trace`, multi-path `eval`, `set --then`, **`rdbg do`** (several
+Shipped: `trace`, multi-path `eval`, `set --then`, **`rdbg do`** (several
 subcommands in one call), **delta stops** (each stop shows only the locals
 that *changed* — `~ sum: u32 = 6 (was 3)`), **predicate run-to**
 (`rdbg continue --until 'sum > 100'` — rdbg re-checks the condition itself at
-each breakpoint stop, so it works past lldb's condition limits), and **one-shot
+each breakpoint stop, so it works past lldb's condition limits), **one-shot
 panic triage** (`rdbg debug --test t --panic` returns the panic message, the first
-*user* frame with its arguments, and locals in one bundle). Next:
-
-- **Full Rust expression eval** — bundle/auto-install `codelldb` so `eval` handles
-  comparisons, tuple fields, and method calls, not just variable paths. (Measured as
-  the top friction when agents debug real large-repo bugs: an agent burned ~10 calls
-  fighting lldb's C++ evaluator before falling back to `eprintln`.)
+*user* frame with its arguments, and locals in one bundle), and **full Rust
+expression eval** (`install.sh` auto-installs `codelldb`, so `eval` handles
+`a == b`, `x.0`, and method calls — not just variable paths).
 
 ## Build
 

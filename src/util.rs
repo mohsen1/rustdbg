@@ -113,6 +113,21 @@ fn on_path(name: &str) -> Option<String> {
 /// older `lldb-vscode`, including version-suffixed names on Linux
 /// (`lldb-dap-18`, `lldb-vscode-14`, ...). On macOS, fall back to `xcrun`.
 pub fn find_lldb_dap() -> Option<String> {
+    // an explicit override, then a codelldb installed by install.sh into its own
+    // dir (so it finds its bundled liblldb) — both preferred over PATH lldb-dap
+    // because codelldb gives full Rust expression eval (`a == b`, `x.0`, methods).
+    if let Some(p) = std::env::var_os("RDBG_CODELLDB") {
+        if std::path::Path::new(&p).is_file() {
+            return Some(p.to_string_lossy().to_string());
+        }
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        let bundled = std::path::Path::new(&home)
+            .join(".local/share/rdbg/codelldb/extension/adapter/codelldb");
+        if bundled.is_file() {
+            return Some(bundled.to_string_lossy().to_string());
+        }
+    }
     for exact in ["codelldb", "lldb-dap", "lldb-vscode"] {
         if let Some(p) = on_path(exact) {
             return Some(p);
