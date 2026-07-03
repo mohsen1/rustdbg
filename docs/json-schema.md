@@ -52,12 +52,17 @@ runs the program) have this shape:
   on fresh stops, not on `state`/`thread` re-summaries)
 - program ended: `{"exited": true, "exit_code", "output"}` (`output` — last
   2 KB of program output; only on fresh stops)
+- from `continue --until`, the stop also carries `until`:
+  `{"outcome": "held" | "exited" | "cap", "cond", "stops", "observed"}`
+  (`stops` — resumes consumed; `observed` — the evaluated value when the
+  condition held, else null)
 
 | command | success fields (besides `ok`, `status`) |
 |---------|------------------------------------------|
 | `launch` | `stop` (first stop, or exit) |
 | `trace`  | `trace` (rendered table), `hits` (int), `output` (string or null) |
 | `run` / `continue`, `step`, `until`, `pause`, `restart` | `stop` |
+| `continue --until '<cond>'` | `stop` (with the `until` outcome object above) |
 | `thread <id>` | `stop` (summary for the selected thread, no `delta`/`output`) |
 | `frame <n>` / `up` / `down` | `source`, `vars` |
 | `state`  | `stop` (no `delta`), `vars`, `watches` |

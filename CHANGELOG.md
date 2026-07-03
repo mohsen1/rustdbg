@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Predicate run-to: `rdbg continue --until '<path> <op> <value>'` (MCP
+  `debug_continue` with `until`) keeps resuming past breakpoint stops and
+  re-checks the condition at each stop — evaluated by rdbg itself via the
+  variables tree, not by lldb, so it works where lldb conditional breakpoints
+  don't bind or fire. Ops: `== != < <= > >=`; numeric comparison when both
+  sides are numbers, string/bool equality otherwise. Returns the first stop
+  where the condition holds (marked `>>> UNTIL: condition … held`), or reports
+  that the program exited / the 10000-resume safety cap ran out without it
+  holding. Needs at least one active breakpoint; plain `rdbg continue` is
+  unchanged. One call instead of a continue/eval round-trip per iteration.
 - rust-analyzer now starts **lazily** on the first navigation command (`where`/`def`/
   `hover`/`refs`) instead of eagerly on every session. Debug-only sessions — the common
   case — no longer pay its indexing cost, which on a large repo (~1.7M lines) is minutes

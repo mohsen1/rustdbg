@@ -36,6 +36,9 @@ BREAKPOINTS (set or change any time, even while paused)
 
 RUN CONTROL
   rdbg run | continue           resume to the next stop
+  rdbg continue --until '<path> <op> <value>'   keep resuming past breakpoint
+      stops until the condition holds (op: == != < <= > >=), checked by rdbg
+      itself at each stop — needs at least one active breakpoint
   rdbg step [over|in|out|insn]  step a source line, or one instruction
   rdbg until f.rs:L             run to a line
   rdbg pause                    interrupt a running program
@@ -296,6 +299,21 @@ fn opt_multi(args: &[String], flag: &str) -> Option<String> {
     if toks.is_empty() { None } else { Some(toks.join(" ")) }
 }
 
+/// The `continue --until` outcome line, when the stop carries one: says whether
+/// the condition held (and the observed value), or why the loop gave up.
+fn until_note(stop: &Value) -> Option<String> {
+    let u = stop.get("until")?;
+    let cond = u["cond"].as_str().unwrap_or("?");
+    let stops = u["stops"].as_i64().unwrap_or(0);
+    Some(match u["outcome"].as_str()? {
+        "held" => format!(">>> UNTIL: condition `{cond}` held after {stops} stop(s) — observed {}",
+                          u["observed"].as_str().unwrap_or("?")),
+        "exited" => format!(">>> UNTIL: program exited after {stops} stop(s) without `{cond}` holding"),
+        "cap" => format!(">>> UNTIL: gave up after {stops} stops (safety cap) without `{cond}` holding — still paused at the last stop"),
+        _ => return None,
+    })
+}
+
 /// Render a stop summary as text (returned, not printed — callers `println!` it,
 /// or thread it through `do` / MCP).
 fn fmt_stop(stop: &Value) -> String {
@@ -325,6 +343,9 @@ fn fmt_stop(stop: &Value) -> String {
                 out.push_str("\n(bound-but-0-hits = the code didn't run that line/fn on this input; the value may be produced by a different path — try another break location.)");
             }
         }
+        if let Some(n) = until_note(stop) {
+            out = format!("{n}\n{out}");
+        }
         if let Some(o) = stop["output"].as_str() {
             if !o.is_empty() {
                 out.push_str(&format!("\n--- program output ---\n{}", o.trim_end()));
@@ -332,9 +353,13 @@ fn fmt_stop(stop: &Value) -> String {
         }
         return out;
     }
-    let mut lines = vec![format!(">>> STOP [{}] {}  (thread {})",
+    let mut lines = vec![];
+    if let Some(n) = until_note(stop) {
+        lines.push(n);
+    }
+    lines.push(format!(">>> STOP [{}] {}  (thread {})",
         stop["reason"].as_str().unwrap_or("?"), stop["frame"].as_str().unwrap_or("?"),
-        stop["thread"].as_i64().unwrap_or(0))];
+        stop["thread"].as_i64().unwrap_or(0)));
     if let Some(src) = stop["source"].as_str() {
         if !src.is_empty() {
             lines.push(src.to_string());
@@ -499,7 +524,12 @@ fn run_command_full(ws: &Path, cmd: &str, rest: &[String]) -> (String, Value) {
             ("ok".to_string(), jresp(resp))
         }
         "run" | "continue" => {
-            let resp = r(json!({"cmd": "continue"}));
+            // `--until '<path> <op> <value>'`: the daemon keeps resuming and
+            // re-checks the condition itself at each breakpoint stop
+            let resp = match opt_multi(rest, "--until") {
+                Some(cond) => r(json!({"cmd": "continue_until", "until": cond})),
+                None => r(json!({"cmd": "continue"})),
+            };
             (fmt_result_stop(&resp), jresp(resp))
         }
         "step" => {

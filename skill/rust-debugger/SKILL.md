@@ -56,11 +56,18 @@ rdbg breaks                           # list with ids; break-rm/break-on/break-o
 
 ```
 rdbg continue
+rdbg continue --until 'sum >= 100'    # keep resuming until a condition holds
 rdbg step over | in | out | insn
 rdbg until src/x.rs:99                 # run to a line
 rdbg pause                            # interrupt a running program
 rdbg restart
 ```
+
+`continue --until '<path> <op> <value>'` (ops `== != < <= > >=`) re-checks the
+condition at each breakpoint stop itself — one call instead of a
+continue/eval loop per iteration, and it works where lldb conditional
+breakpoints don't fire. Needs an active breakpoint to stop at; ends at the
+first stop where the condition holds, or reports that the program exited.
 
 ## Read and change state
 
@@ -96,6 +103,9 @@ rdbg def | hover | refs <file> <line> <col>
 
 - **Wrong value.** Break where it is computed, `vars` and `eval` to see the real
   inputs, `step` to watch it go wrong, `set` to test a fix without recompiling.
+- **Value goes wrong at some iteration.** Break in the loop, then
+  `continue --until 'sum > 100'` to jump straight to the first stop where the
+  condition holds instead of continue/eval-ing by hand.
 - **Panic.** `launch … --panic`, then `bt` and `up` to your frame to see the
   arguments that caused it.
 - **Unexpected mutation.** `watch <var>`, then `continue` to stop the moment it

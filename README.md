@@ -162,13 +162,13 @@ paused between an agent's tool calls. State lives in `.rdbg/` — add it to
 
 Every command is one turn for an agent, so the theme is collapsing round-trips.
 Shipped so far: `trace`, multi-path `eval`, `set --then`, **`rdbg do`** (several
-subcommands in one call), and **delta stops** (each stop shows only the locals
-that *changed* — `~ sum: u32 = 6 (was 3)`). Next:
+subcommands in one call), **delta stops** (each stop shows only the locals
+that *changed* — `~ sum: u32 = 6 (was 3)`), and **predicate run-to**
+(`rdbg continue --until 'sum > 100'` — rdbg re-checks the condition itself at
+each breakpoint stop, so it works past lldb's condition limits). Next:
 
 - **One-shot panic triage** — `rdbg debug --test t --panic` returns the panic
   message, the first user frame with its arguments, and locals in one bundle.
-- **Predicate run-to** — `rdbg continue --until 'sum > 100'`, evaluated
-  server-side so it works past lldb's condition limits.
 
 ## Build
 

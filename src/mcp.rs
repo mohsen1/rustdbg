@@ -45,7 +45,9 @@ fn tools() -> Vec<Value> {
         json!({"name": "debug_breakpoints", "description": "List all breakpoints with ids.", "inputSchema": obj(json!({}))}),
         json!({"name": "debug_remove_breakpoint", "description": "Remove a breakpoint by id (or 'panic').",
             "inputSchema": obj(json!({"id": {"type": "string"}}))}),
-        json!({"name": "debug_continue", "description": "Resume until the next stop.", "inputSchema": obj(json!({}))}),
+        json!({"name": "debug_continue", "description":
+            "Resume until the next stop. Optional `until`: a condition '<path> <op> <value>' (op: == != < <= > >=, e.g. 'sum >= 100') — rdbg keeps resuming past breakpoint stops and re-checks the condition itself at each one (works where lldb conditional breakpoints don't bind), returning the first stop where it holds. Needs at least one active breakpoint.",
+            "inputSchema": obj(json!({"until": {"type": "string"}}))}),
         json!({"name": "debug_step", "description": "Step the current thread: over | in | out | insn.",
             "inputSchema": obj(json!({"kind": {"type": "string", "enum": ["over", "in", "out", "insn"]}}))}),
         json!({"name": "debug_run_to", "description": "Run to a line ('file.rs:line').",
@@ -192,7 +194,10 @@ fn call(ws: &Path, name: &str, a: &Value) -> (String, bool, String) {
         }
         "debug_breakpoints" => json!({"cmd": "bp_list"}),
         "debug_remove_breakpoint" => json!({"cmd": "bp_rm", "id": a["id"].as_str().unwrap_or("")}),
-        "debug_continue" => json!({"cmd": "continue"}),
+        "debug_continue" => match a["until"].as_str().map(str::trim).filter(|u| !u.is_empty()) {
+            Some(u) => json!({"cmd": "continue_until", "until": u}),
+            None => json!({"cmd": "continue"}),
+        },
         "debug_step" => json!({"cmd": "step", "kind": a["kind"].as_str().unwrap_or("over")}),
         "debug_run_to" => { let (f, l) = parse_loc(a["location"].as_str().unwrap_or("")); json!({"cmd": "until", "file": f, "line": l}) }
         "debug_pause" => json!({"cmd": "pause"}),

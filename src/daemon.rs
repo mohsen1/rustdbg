@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 
 use crate::lsp::Lsp;
-use crate::session::{Session, Stop};
+use crate::session::{parse_predicate, Session, Stop, UntilOutcome};
 use crate::util::{abs, classify_error};
 
 const IDLE_SHUTDOWN: Duration = Duration::from_secs(30 * 60);
@@ -199,6 +199,38 @@ impl Daemon {
         (resp, false)
     }
 
+    /// `continue --until '<path> <op> <value>'`: keep resuming past breakpoint
+    /// stops until the condition holds, evaluated by rdbg itself at each stop
+    /// (not by lldb — works where lldb conditional breakpoints don't bind).
+    /// The stop summary carries an `until` object saying how the loop ended.
+    fn cmd_continue_until(&mut self, req: &Value) -> Value {
+        let cond = req["until"].as_str().unwrap_or("").to_string();
+        let pred = match parse_predicate(&cond) {
+            Ok(p) => p,
+            Err(e) => return json!({"ok": false, "error": e}),
+        };
+        let max = req["max"].as_i64().unwrap_or(10_000).clamp(1, 1_000_000) as usize;
+        if self.session.as_ref().unwrap().active_breakpoint_count() == 0 {
+            return json!({"ok": false, "error":
+                "continue --until needs at least one active breakpoint — rdbg re-checks the \
+                 condition at each breakpoint stop (set one with `rdbg break <file.rs:line>`)"});
+        }
+        match self.session.as_mut().unwrap().cont_until(&pred, max) {
+            Ok((stop, outcome, stops)) => {
+                let (name, observed) = match outcome {
+                    UntilOutcome::Held(obs) => ("held", Some(obs)),
+                    UntilOutcome::Exited => ("exited", None),
+                    UntilOutcome::Cap => ("cap", None),
+                };
+                let mut summary = self.stop_summary(stop);
+                summary["until"] = json!({"outcome": name, "cond": pred.to_string(),
+                                          "stops": stops, "observed": observed});
+                json!({"ok": true, "stop": summary})
+            }
+            Err(e) => json!({"ok": false, "error": e}),
+        }
+    }
+
     fn cmd_launch(&mut self, req: &Value) -> Value {
         if let Some(mut old) = self.session.take() {
             old.disconnect();
@@ -274,6 +306,7 @@ impl Daemon {
         // commands that resume execution and yield a fresh stop
         match cmd {
             "continue" => return self.run_stop(|s| s.cont()),
+            "continue_until" => return self.cmd_continue_until(req),
             "step" => {
                 let kind = req["kind"].as_str().unwrap_or("over").to_string();
                 return self.run_stop(move |s| match kind.as_str() {

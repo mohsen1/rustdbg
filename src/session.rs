@@ -385,6 +385,15 @@ impl Session {
         self.line_bps.values().map(|v| v.len()).sum::<usize>() + self.fn_bps.len() + self.data_bps.len() + self.panic as usize
     }
 
+    /// Enabled breakpoints only — `continue --until` needs at least one place
+    /// to stop at between condition checks.
+    pub fn active_breakpoint_count(&self) -> usize {
+        self.line_bps.values().flatten().filter(|b| b.enabled).count()
+            + self.fn_bps.iter().filter(|b| b.enabled).count()
+            + self.data_bps.iter().filter(|b| b.enabled).count()
+            + self.panic as usize
+    }
+
     // -- run control ----------------------------------------------------------
 
     fn flush(&mut self) {
@@ -538,6 +547,27 @@ impl Session {
         }
         self.sync_line(&ap);
         result
+    }
+
+    /// Keep resuming past breakpoint stops until `pred` holds. The condition is
+    /// evaluated by rdbg itself at each stop (via `evaluate`), not by lldb — so
+    /// it works where lldb conditional breakpoints don't bind or fire reliably.
+    /// Ends when the predicate holds, the program exits, or after `max` resumes
+    /// (safety cap); returns the final stop, how the loop ended, and how many
+    /// stops were consumed.
+    pub fn cont_until(&mut self, pred: &Predicate, max: usize) -> Result<(Stop, UntilOutcome, usize), String> {
+        for i in 1..=max {
+            let stop = self.cont()?;
+            if stop.exited {
+                return Ok((stop, UntilOutcome::Exited, i));
+            }
+            let observed = self.evaluate(&pred.path);
+            if predicate_holds(&observed, pred.op, &pred.rhs) {
+                return Ok((stop, UntilOutcome::Held(observed), i));
+            }
+        }
+        let stop = self.last_stop.clone().ok_or("not stopped")?;
+        Ok((stop, UntilOutcome::Cap, max))
     }
 
     /// Run through breakpoint hits without yielding: at each stop capture the
@@ -854,6 +884,129 @@ impl Session {
 /// the whole string if there is no `=`.
 fn value_part(repr: &str) -> &str {
     repr.rsplit_once(" = ").map(|(_, v)| v).unwrap_or(repr)
+}
+
+/// A `continue --until` condition: `<path> <op> <value>`, where `path` is a
+/// variable path `evaluate` understands and `op` is one of `== != < <= > >=`.
+#[derive(Debug, PartialEq)]
+pub struct Predicate {
+    pub path: String,
+    pub op: &'static str,
+    pub rhs: String,
+}
+
+impl std::fmt::Display for Predicate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {} {}", self.path, self.op, self.rhs)
+    }
+}
+
+/// How a `cont_until` loop ended: the condition held (with the observed
+/// value), the program exited first, or the safety cap ran out.
+pub enum UntilOutcome {
+    Held(String),
+    Exited,
+    Cap,
+}
+
+/// Parse `sum >= 100` / `items[0].qty == 3` into a `Predicate`. Two-character
+/// operators are matched before their one-character prefixes so `<=` is never
+/// read as `<`.
+pub fn parse_predicate(s: &str) -> Result<Predicate, String> {
+    const OPS: [&str; 6] = ["==", "!=", "<=", ">=", "<", ">"];
+    let bad = || format!("cannot parse condition {s:?} — want `<path> <op> <value>` with op one of == != < <= > >=, e.g. `sum >= 100`");
+    let found = s.char_indices().find_map(|(i, _)| {
+        OPS.iter().find(|op| s[i..].starts_with(**op)).map(|op| (i, *op))
+    });
+    let Some((i, op)) = found else { return Err(bad()) };
+    let path = s[..i].trim();
+    let rhs = s[i + op.len()..].trim();
+    if path.is_empty() || rhs.is_empty() || OPS.iter().any(|o| rhs.starts_with(o)) {
+        return Err(bad());
+    }
+    Ok(Predicate { path: path.to_string(), op, rhs: rhs.to_string() })
+}
+
+/// Does an observed value (as `evaluate` renders it, e.g. `i64 = 5`) satisfy
+/// `op rhs`? Numeric comparison when both sides parse as numbers; otherwise
+/// string equality with surrounding quotes stripped (`== !=` only — ordering
+/// two non-numbers is always false). Evaluation errors never hold.
+pub fn predicate_holds(observed: &str, op: &str, rhs: &str) -> bool {
+    if observed.starts_with('(') {
+        return false; // "(cannot evaluate …)" / "(not stopped)"
+    }
+    let lhs = value_part(observed).trim();
+    let rhs = rhs.trim();
+    if let (Ok(a), Ok(b)) = (lhs.parse::<f64>(), rhs.parse::<f64>()) {
+        return match op {
+            "==" => a == b,
+            "!=" => a != b,
+            "<" => a < b,
+            "<=" => a <= b,
+            ">" => a > b,
+            ">=" => a >= b,
+            _ => false,
+        };
+    }
+    fn unquote(s: &str) -> &str {
+        s.trim_matches('"')
+    }
+    match op {
+        "==" => unquote(lhs) == unquote(rhs),
+        "!=" => unquote(lhs) != unquote(rhs),
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_predicate, predicate_holds, Predicate};
+
+    fn pred(path: &str, op: &'static str, rhs: &str) -> Predicate {
+        Predicate { path: path.into(), op, rhs: rhs.into() }
+    }
+
+    #[test]
+    fn predicates_parse_paths_ops_and_values() {
+        assert_eq!(parse_predicate("sum >= 100").unwrap(), pred("sum", ">=", "100"));
+        assert_eq!(parse_predicate("i==5").unwrap(), pred("i", "==", "5"));
+        assert_eq!(parse_predicate("items[0].qty != 3").unwrap(), pred("items[0].qty", "!=", "3"));
+        assert_eq!(parse_predicate("x <= -2").unwrap(), pred("x", "<=", "-2"));
+        assert_eq!(parse_predicate("x < 2").unwrap(), pred("x", "<", "2"));
+        assert_eq!(parse_predicate("done == true").unwrap(), pred("done", "==", "true"));
+        assert_eq!(parse_predicate("name == \"bob\"").unwrap(), pred("name", "==", "\"bob\""));
+    }
+
+    #[test]
+    fn bad_predicates_are_rejected_with_the_expected_shape() {
+        for bad in ["sum", "", ">= 100", "sum >=", "sum = 100", "a > > b"] {
+            let e = parse_predicate(bad).unwrap_err();
+            assert!(e.contains("<path> <op> <value>"), "{bad:?} -> {e}");
+        }
+    }
+
+    #[test]
+    fn holds_compares_numbers_numerically_and_strings_by_equality() {
+        // observed values come rendered as `type = value`
+        assert!(predicate_holds("i64 = 5", ">=", "5"));
+        assert!(predicate_holds("i64 = 5", "==", "5"));
+        assert!(!predicate_holds("i64 = 4", ">=", "5"));
+        assert!(predicate_holds("u32 = 10", ">", "9.5"));
+        assert!(predicate_holds("i32 = -3", "<", "0"));
+        assert!(predicate_holds("f64 = 2.5", "!=", "2"));
+        // a bare value (no `type = ` prefix) works too
+        assert!(predicate_holds("7", "<=", "7"));
+        // bools and strings: equality, quotes stripped
+        assert!(predicate_holds("bool = true", "==", "true"));
+        assert!(predicate_holds("String = \"bob\"", "==", "bob"));
+        assert!(predicate_holds("String = \"bob\"", "==", "\"bob\""));
+        assert!(!predicate_holds("String = \"bob\"", "!=", "bob"));
+        // ordering two non-numbers is never true
+        assert!(!predicate_holds("String = \"b\"", ">", "a"));
+        // evaluation failures never hold
+        assert!(!predicate_holds("(cannot evaluate \"i\": error)", "==", "5"));
+        assert!(!predicate_holds("(not stopped)", "!=", "5"));
+    }
 }
 
 /// Split `items[0].qty` into `["items", "[0]", "qty"]` — Vec/array children are
