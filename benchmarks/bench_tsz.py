@@ -156,7 +156,10 @@ def run_agent(slot: Path, image: str, prompt: str, tpath: Path, env, model="opus
             continue
         if ev.get("type") == "result":
             u = ev.get("usage", {})
-            tokens = sum(v for k, v in u.items() if k.endswith("_tokens") and isinstance(v, int))
+            t = sum(v for k, v in u.items() if k.endswith("_tokens") and isinstance(v, int))
+            # a run can emit >1 result event (e.g. a restart); take the largest — the
+            # main run's cumulative usage — not the last (which may be a tiny follow-up).
+            tokens = t if tokens is None else max(tokens, t)
     return {"tokens": tokens, "wall_s": wall, "disk_killed": disk, "timed_out": timed}
 
 
