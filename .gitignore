@@ -14,3 +14,6 @@ benchmarks/rlenv/episodes/
 benchmarks/rlenv/.mcp-*.json
 benchmarks/rlenv/PROOF.md
 benchmarks/rlenv/dataset.jsonl
+benchmarks/results-tsz/transcripts/
+benchmarks/results-tsz/transcripts-broken/
+benchmarks/results-tsz/work/

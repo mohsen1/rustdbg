@@ -1,0 +1,77 @@
+[
+  {
+    "sha": "4da902ecbac56e2c9a23f8d51c1e16a882c7ce5b",
+    "parent": "4d14e594e1a526aef8fe14d79e4fb635634fc54e",
+    "subject": "fix(checker,solver): sound type-arg display projection + same-base all",
+    "test_files": [
+      "crates/tsz-checker/tests/generic_property_mismatch_display_tests.rs",
+      "crates/tsz-checker/tests/same_base_any_args_application_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test generic_property_mismatch_display_tests",
+    "test_stems": [
+      "generic_property_mismatch_display_tests",
+      "same_base_any_args_application_tests"
+    ]
+  },
+  {
+    "sha": "06943a5b377328caaa97d1fdb51a2f30910dd45f",
+    "parent": "e11e3b1c9d210fe453cf53738ab62a283cf1ada6",
+    "subject": "fix(solver): suppress false TS2322 for deeply-nested path-splitting co",
+    "test_files": [
+      "crates/tsz-checker/tests/deeply_nested_conditional_mapped_recursion_tests.rs"
+    ],
+    "cargo_files_to_checkout": [],
+    "nextest_filter": "-p tsz-checker --test deeply_nested_conditional_mapped_recursion_tests",
+    "test_stems": [
+      "deeply_nested_conditional_mapped_recursion_tests"
+    ]
+  },
+  {
+    "sha": "30792170a35fb4309eb568f221debd85f6b9d08a",
+    "parent": "0f1a2942c333850d6f876d01b2bd8cc51e0dde6c",
+    "subject": "fix(checker): validate keyof/readonly/unique type-operator operands (#",
+    "test_files": [
+      "crates/tsz-checker/tests/keyof_operand_indexed_access_validation_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test keyof_operand_indexed_access_validation_tests",
+    "test_stems": [
+      "keyof_operand_indexed_access_validation_tests"
+    ]
+  },
+  {
+    "sha": "8292e69d5b91312ccfa30664ef51dc8aa3a7b035",
+    "parent": "42dbe6263eb2caad4d7643b834246f4c881e0175",
+    "subject": "fix(checker): reject contravariant callback property in fresh object-l",
+    "test_files": [
+      "crates/tsz-checker/tests/fresh_object_literal_arg_callback_param_variance_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test fresh_object_literal_arg_callback_param_variance_tests",
+    "test_stems": [
+      "fresh_object_literal_arg_callback_param_variance_tests"
+    ]
+  },
+  {
+    "sha": "61ae5e52064d7c77def158b1ef61acd498d2b741",
+    "parent": "057951f6c191bad8d0c4f43f9d578efa80e6795f",
+    "subject": "fix(checker): unify flow-narrowing finalization and roll narrowing mar",
+    "test_files": [
+      "crates/tsz-checker/tests/flow_narrowing_finalization_tests.rs"
+    ],
+    "cargo_files_to_checkout": [
+      "crates/tsz-checker/Cargo.toml"
+    ],
+    "nextest_filter": "-p tsz-checker --test flow_narrowing_finalization_tests",
+    "test_stems": [
+      "flow_narrowing_finalization_tests"
+    ]
+  }
+]

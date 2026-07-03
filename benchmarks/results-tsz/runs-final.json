@@ -1,0 +1,68 @@
+[
+  {
+    "case": "4da902ecba",
+    "subject": "fix(checker,solver): sound type-arg display projection + same-base all",
+    "cond": "without",
+    "baseline_red": true,
+    "passed": true,
+    "tokens": 8827756,
+    "wall_s": 810.9,
+    "disk_killed": false,
+    "timed_out": false
+  },
+  {
+    "case": "4da902ecba",
+    "subject": "fix(checker,solver): sound type-arg display projection + same-base all",
+    "cond": "with",
+    "baseline_red": true,
+    "passed": true,
+    "tokens": 4470894,
+    "wall_s": 498.1,
+    "disk_killed": false,
+    "timed_out": false
+  },
+  {
+    "case": "8292e69d5b",
+    "subject": "fix(checker): reject contravariant callback property in fresh object-l",
+    "cond": "without",
+    "baseline_red": true,
+    "passed": true,
+    "tokens": 5512499,
+    "wall_s": 768.6,
+    "disk_killed": false,
+    "timed_out": false
+  },
+  {
+    "case": "8292e69d5b",
+    "subject": "fix(checker): reject contravariant callback property in fresh object-l",
+    "cond": "with",
+    "baseline_red": true,
+    "passed": true,
+    "tokens": 10525483,
+    "wall_s": 1426.6,
+    "disk_killed": false,
+    "timed_out": false
+  },
+  {
+    "case": "06943a5b37",
+    "subject": "fix(solver): suppress false TS2322 for deeply-nested path-splitting co",
+    "cond": "without",
+    "baseline_red": true,
+    "passed": true,
+    "tokens": 22870922,
+    "wall_s": 1928.2,
+    "disk_killed": false,
+    "timed_out": false
+  },
+  {
+    "case": "06943a5b37",
+    "subject": "fix(solver): suppress false TS2322 for deeply-nested path-splitting co",
+    "cond": "with",
+    "baseline_red": true,
+    "passed": true,
+    "tokens": 6921120,
+    "wall_s": 866.9,
+    "disk_killed": false,
+    "timed_out": false
+  }
+]
