@@ -319,37 +319,45 @@ impl Daemon {
             return json!({"ok": true, "panicked": false, "exit_code": stop.exit_code,
                           "output": tail(&out, 2000)});
         }
-        // paused where the panic is raised — land on the first user frame
+        // paused where the panic is raised — the first user frame, from the
+        // frame list only (no variable reads yet, see below)
         let idx = first_user_frame(&stop.frames).unwrap_or(0);
         session.select_frame(idx);
         let frame = stop.frames.get(idx)
             .map(|f| format!("{}  {}:{}", f.name, f.file, f.line))
             .unwrap_or_else(|| "?".into());
-        let vars = session.locals_text(3);
         let source = session.source_around(4);
         let bt = session.backtrace_text();
-        // The panic breakpoint fires *before* the hook prints `panicked at ...`.
-        // Nudge the program forward (through the remaining panic symbols — the
-        // stack below the user frame is unchanged) until the message shows up
-        // in the output or the process exits. libtest targets (--nocapture)
-        // flush it while still paused; plain binaries often only flush at exit,
-        // so a binary's triage usually ends with the program exited.
+        // Hunt the panic message next: the panic breakpoint fires *before* the
+        // hook prints `panicked at ...`, so walk forward through the remaining
+        // panic symbols (the user stack below stays intact) until the message
+        // shows up — but never past rust_panic: continuing there lets the
+        // program die. Deliberately before any locals read — lldb's Rust data
+        // formatters can wedge the adapter on a moved-out String, and reading
+        // locals last means that can only degrade the locals field.
+        let at_last = |s: &Session| s.last_stop.as_ref().and_then(|st| st.top())
+            .map(|f| f.name.ends_with("rust_panic")).unwrap_or(false);
         let mut exited = false;
         let mut exit_code = None;
         let mut message = extract_panic_message(&session.output.concat());
-        for _ in 0..4 {
+        for _ in 0..3 {
             if message.is_some() {
                 break;
             }
-            if session.wait_output_contains("panicked at", Duration::from_millis(700)) {
+            let last = at_last(&session);
+            if session.wait_output_contains("panicked at",
+                Duration::from_millis(if last { 2000 } else { 700 })) {
                 message = extract_panic_message(&session.output.concat());
                 break;
             }
+            if last {
+                break; // the hook already ran and printed nothing visible
+            }
             match session.cont() {
                 Ok(s) if s.exited => {
+                    // panic=abort (no rust_panic symbol): the message flushes at exit
                     exited = true;
                     exit_code = s.exit_code;
-                    // the final output flush can trail the exited event
                     session.wait_output_contains("panicked at", Duration::from_millis(700));
                     message = extract_panic_message(&session.output.concat());
                     break;
@@ -358,15 +366,20 @@ impl Daemon {
                 Err(_) => break,
             }
         }
+        // locals (arguments included) at the user frame of the current stop —
+        // the same physical frame, read last
+        let vars = if exited {
+            "  (program ran to exit during triage — locals no longer available)".to_string()
+        } else {
+            let i = session.last_stop.as_ref().map(|s| first_user_frame(&s.frames).unwrap_or(0)).unwrap_or(0);
+            session.select_frame(i);
+            session.locals_text(3)
+        };
         let out = session.output.concat();
         if exited {
             session.disconnect();
         } else {
-            // keep the paused session usable: reselect the user frame in the
-            // (possibly deeper) current stop so vars/frame/bt pick up there
-            let i = session.last_stop.as_ref().map(|s| first_user_frame(&s.frames).unwrap_or(0)).unwrap_or(0);
-            session.select_frame(i);
-            self.session = Some(session);
+            self.session = Some(session); // paused inside the panic, user frame selected
         }
         json!({
             "ok": true, "panicked": true,
