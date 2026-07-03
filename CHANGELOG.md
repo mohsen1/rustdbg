@@ -5,7 +5,7 @@
 - `rdbg status` now reports the selected `adapter` (absolute path) — the live
   session's adapter, or the one `find_lldb_dap` would pick when no session is
   running yet. Lets you confirm which adapter is in play (bundled codelldb for
-  full Rust eval, a PATH `lldb-dap`, or `xcrun`) without reading the daemon
+  richer eval, a PATH `lldb-dap`, or `xcrun`) without reading the daemon
   internals. Surfaced in `--json` and text output, and via MCP `debug_status`.
 - `install.sh` now auto-installs **codelldb** per-platform (into
   `~/.local/share/rdbg/codelldb`, kept in its own dir so it finds its bundled liblldb),
@@ -42,8 +42,8 @@
   benchmark made 0 navigation calls yet paid the warm-up — a pure wall-time drain.)
 - `eval` now redirects instead of leaking lldb's C++ error when handed a Rust
   expression it can't resolve (a comparison `==`, tuple `.0`, `->`, method call): it
-  says eval takes variable PATHS, points to `rdbg vars`, and notes that `codelldb` on
-  PATH adds full Rust expression eval. `install.sh` now recommends codelldb. (On a real
+  says eval takes variable PATHS, points to `rdbg vars`, and notes that `codelldb`
+  adds comparison/arithmetic/field eval. `install.sh` now recommends codelldb. (On a real
   tsz bug, an agent burned ~10 calls fighting the C++ evaluator, then fell back to
   `eprintln` — the loop rdbg exists to replace.)
 - When a run ends in program exit, `launch` / `continue` / `do` now report which
