@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `rdbg status` now reports the selected `adapter` (absolute path) — the live
+  session's adapter, or the one `find_lldb_dap` would pick when no session is
+  running yet. Lets you confirm which adapter is in play (bundled codelldb for
+  full Rust eval, a PATH `lldb-dap`, or `xcrun`) without reading the daemon
+  internals. Surfaced in `--json` and text output, and via MCP `debug_status`.
 - `install.sh` now auto-installs **codelldb** per-platform (into
   `~/.local/share/rdbg/codelldb`, kept in its own dir so it finds its bundled liblldb),
   and rdbg prefers it — so `eval` handles **comparisons** (`a == b` → `true`),

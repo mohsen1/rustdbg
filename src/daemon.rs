@@ -184,9 +184,15 @@ impl Daemon {
             "shutdown" => return (json!({"ok": true}), true),
             "status" => {
                 let s = self.session.as_ref();
+                // The adapter the live session launched against, or — with no session
+                // yet — the one `find_lldb_dap` would pick, so `rdbg status` confirms
+                // codelldb (full Rust eval) vs a PATH lldb-dap/xcrun before/after launch.
+                let adapter = s.map(|s| s.adapter().to_string())
+                    .or_else(crate::util::find_lldb_dap);
                 return (json!({
                     "ok": true,
                     "session": s.is_some(),
+                    "adapter": adapter,
                     "stopped": s.map(|s| s.last_stop.as_ref().map(|x| !x.exited).unwrap_or(false)).unwrap_or(false),
                     "lsp_ready": self.lsp.as_ref().map(|l| l.is_ready()).unwrap_or(false),
                     "cur_thread": s.and_then(|s| s.cur_thread),

@@ -138,6 +138,13 @@ pub struct Session {
 }
 
 impl Session {
+    /// The debug adapter this session launched against (absolute path), so
+    /// callers can confirm which one `find_lldb_dap` selected — the bundled
+    /// codelldb (full Rust expression eval) versus a PATH `lldb-dap`/`xcrun`.
+    pub fn adapter(&self) -> &str {
+        &self.adapter
+    }
+
     pub fn new(program: &str, cwd: Option<&str>, args: Vec<String>) -> Result<Session, String> {
         let adapter = find_lldb_dap()
             .ok_or("no lldb-dap adapter found (install LLVM/lldb, or Xcode command line tools)")?;
