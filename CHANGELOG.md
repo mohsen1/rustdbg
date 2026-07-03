@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- `eval` now answers `.len()` and `.is_empty()` on standard containers (`Vec`,
+  `String`, `&str`, slices, arrays, `VecDeque`) directly — from the element count the
+  Rust data formatter already computed (or the raw length field), so **no code runs**
+  in the inferior. `rdbg eval 'v.len()'` → `usize = 3`, `rdbg eval 's.is_empty()'` →
+  `bool = false`. (lldb still can't *call* an arbitrary Rust method — `p.sum()` needs
+  Rust codegen it doesn't have — so those stay unsupported, but the hint now says
+  `.len()`/`.is_empty()` work and to break inside the method or eval its inputs for the
+  rest. `HashMap`/`BTreeMap` counts aren't exposed by the formatter's node, so their
+  `.len()` still falls to that hint.)
+
 - `rdbg status` now reports the selected `adapter` (absolute path) — the live
   session's adapter, or the one `find_lldb_dap` would pick when no session is
   running yet. Lets you confirm which adapter is in play (bundled codelldb for
