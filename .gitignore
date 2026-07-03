@@ -2,11 +2,19 @@
 **/target
 .rdbg/
 
+# RL / grounding investigation — kept locally, deliberately NOT published
+benchmarks/rlenv/
+benchmarks/adopt/
+benchmarks/tasks/
+benchmarks/results-repo/
+benchmarks/FINDINGS.md
+benchmarks/PROOF.md
+benchmarks/bench.py
+benchmarks/bench_repo.py
+benchmarks/__pycache__/
+
 # benchmark scratch
 benchmarks/results/
-benchmarks/results-repo/runs.json
-benchmarks/results-repo/work/
-benchmarks/results-repo/transcripts/
 
 benchmarks/results-adopt/
 docs/rl-directions.md
