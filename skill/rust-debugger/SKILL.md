@@ -106,8 +106,10 @@ rdbg def | hover | refs <file> <line> <col>
 - **Value goes wrong at some iteration.** Break in the loop, then
   `continue --until 'sum > 100'` to jump straight to the first stop where the
   condition holds instead of continue/eval-ing by hand.
-- **Panic.** `launch … --panic`, then `bt` and `up` to your frame to see the
-  arguments that caused it.
+- **Panic.** `rdbg debug --cargo . --lib --panic -- <test>` (or `--bin`/`--test`)
+  runs to the panic and returns the message, the first *user* frame with its
+  arguments and locals, and a backtrace in one call. (Or `launch … --panic`, then
+  `bt`/`up` to your frame, if you want to keep poking around after.)
 - **Unexpected mutation.** `watch <var>`, then `continue` to stop the moment it
   changes.
 - **Failing test.** `--lib … -- <test_name>` for a `#[test]` in the library,

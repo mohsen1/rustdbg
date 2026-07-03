@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- One-shot panic triage: `rdbg debug --cargo <dir> [--bin|--test|--lib] --panic [-- ARGS]`
+  (MCP `debug_panic`) builds, runs to the panic, and returns ONE bundle — the panic
+  message, the first **user** stack frame (std/core panic machinery skipped) with its
+  arguments and locals, and a short backtrace — instead of launch→bt→frame→vars. Says
+  `no panic — program exited` plainly if it doesn't panic. Hunts the message before
+  reading locals and never continues past `rust_panic`, so lldb's Rust String formatter
+  can't wedge the adapter on a `--bin` panic.
 - Predicate run-to: `rdbg continue --until '<path> <op> <value>'` (MCP
   `debug_continue` with `until`) keeps resuming past breakpoint stops and
   re-checks the condition at each stop — evaluated by rdbg itself via the
