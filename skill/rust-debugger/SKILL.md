@@ -39,6 +39,15 @@ deciding code, in a codebase too large to follow by eye.
 and go back to reading — you're probably at the wrong layer, and more debugging will
 only burn tokens.
 
+**Fix once, don't churn.** When you've found the cause, make **one** careful, minimal
+edit and run the narrowed test. If it still fails, do **not** guess-and-edit again —
+that's the most expensive way to work on a large repo (every build is costly, and each
+wrong edit can make it worse). Instead read the exact failing assertion, or break at it
+and `vars`/`eval` the actual-vs-expected values to see *why* before you touch the code
+again. Better still, validate a fix hypothesis **without editing at all**: `set` the
+suspect value and `continue` to watch the outcome change. More than ~2–3 edit→test
+cycles means you're guessing — go back to understanding.
+
 ## Start a session
 
 ```
