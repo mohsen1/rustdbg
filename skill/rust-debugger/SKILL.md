@@ -73,10 +73,7 @@ first stop where the condition holds, or reports that the program exited.
 
 ```
 rdbg vars                             # locals with real Rust values
-rdbg eval items[0].qty sum            # one or more variable paths
-rdbg eval v.len() buf.is_empty()      # .len()/.is_empty() on Vec/String/slice/&str
-                                      #   (no code run; other method calls can't — lldb
-                                      #   has no Rust codegen — break inside or eval inputs)
+rdbg eval items[0].qty sum            # one or more variable paths (not method calls)
 rdbg set cfg.threads = 8 --then continue   # change a value and resume
 rdbg set cfg.threads = 8              # change a value
 rdbg watch-expr add total             # re-shown at every stop

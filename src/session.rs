@@ -750,56 +750,6 @@ impl Session {
         Some((rref, leaf))
     }
 
-    /// The DAP variable object for a resolved path (with its `type`,
-    /// `variablesReference`, and formatter-reported child counts).
-    fn var_object(&self, path: &str) -> Option<Value> {
-        let (rref, leaf) = self.resolve_var_ref(path)?;
-        let vars = self.dap.request_soft("variables", json!({"variablesReference": rref}), Duration::from_secs(10));
-        vars["body"]["variables"].as_array()?.iter()
-            .find(|v| v["name"].as_str() == Some(leaf.as_str())).cloned()
-    }
-
-    /// The element count of a std container at `recv` — for `.len()` / `.is_empty()`
-    /// eval — resolved WITHOUT executing any code. Prefers the count the Rust data
-    /// formatter already computed (`indexedVariables`, set for Vec/slice/VecDeque/
-    /// map/set); falls back to reading the raw length field via the native evaluator
-    /// for `String`/`&str`/slices (codelldb only). Returns None if `recv` isn't a
-    /// length-bearing container, so `eval` can fall through to its normal path.
-    fn container_len(&self, recv: &str) -> Option<i64> {
-        let v = self.var_object(recv)?;
-        // Vec/slice/VecDeque: the formatter reports the element count directly.
-        if let Some(n) = v["indexedVariables"].as_i64() {
-            return Some(n);
-        }
-        let typ = short_type(v["type"].as_str().unwrap_or(""));
-        // HashMap/BTreeMap/HashSet/BTreeSet: the formatter shows entries as named
-        // children, so the entry count is `namedVariables`.
-        if typ.contains("Map") || typ.contains("Set") {
-            if let Some(n) = v["namedVariables"].as_i64() {
-                return Some(n);
-            }
-        }
-        let field = if typ.starts_with("String") {
-            "vec.len"
-        } else if typ.contains("str") || typ.starts_with("&[") || typ.starts_with('[') {
-            "length"
-        } else if typ.starts_with("Vec") || typ.contains("VecDeque") {
-            "len"
-        } else {
-            return None;
-        };
-        let f = self.frame()?;
-        // `/nat` forces codelldb's native evaluator, which reads the raw struct field
-        // past the synthetic formatter; harmless-and-fails on plain lldb-dap.
-        let resp = self.dap.request_soft("evaluate",
-            json!({"expression": format!("/nat {recv}.{field}"), "frameId": f.id, "context": "hover"}),
-            Duration::from_secs(10));
-        if resp["success"].as_bool().unwrap_or(false) {
-            return resp["body"]["result"].as_str().and_then(|s| s.trim().parse::<i64>().ok());
-        }
-        None
-    }
-
     pub fn locals_text(&self, depth: i32) -> String {
         self.locals_text_capped(depth, 12)
     }
@@ -892,16 +842,6 @@ impl Session {
 
     pub fn evaluate(&self, expr: &str) -> String {
         let expr = expr.trim();
-        // `.len()` / `.is_empty()` on a std container: answered from the element
-        // count the Rust data formatter already computed — no code is executed in
-        // the inferior (unlike a real method call, which lldb can't do for Rust).
-        for (suffix, as_bool) in [(".len()", false), (".is_empty()", true)] {
-            if let Some(recv) = expr.strip_suffix(suffix) {
-                if let Some(n) = self.container_len(recv.trim()) {
-                    return if as_bool { format!("bool = {}", n == 0) } else { format!("usize = {n}") };
-                }
-            }
-        }
         // Prefer the variables tree: it auto-derefs `&references` and renders Rust
         // aggregates, where lldb's expression evaluator rejects `.` on a pointer
         // (`it.qty` on a `&Item`). Fall back to the evaluator for anything the
@@ -933,7 +873,7 @@ impl Session {
                 || expr.contains("&&") || expr.contains("||") || expr.contains("->");
             let hint = if self.adapter.contains("codelldb") {
                 if is_call {
-                    "codelldb/lldb can't call an arbitrary Rust method (no Rust codegen) — `.len()`/`.is_empty()` do work; for others, break inside the method or eval its inputs."
+                    "codelldb/lldb can't call a Rust method (no Rust codegen to run it) — break inside the method, or eval its inputs; `rdbg vars`/`eval <container>` already shows collection sizes and contents."
                 } else {
                     "not evaluable in this frame — check the path with `rdbg vars` (it may be a computed value or out of scope)."
                 }
