@@ -48,6 +48,25 @@ again. Better still, validate a fix hypothesis **without editing at all**: `set`
 suspect value and `continue` to watch the outcome change. More than ~2–3 edit→test
 cycles means you're guessing — go back to understanding.
 
+## Tap, don't walk
+
+The debugger's job is to **aim your reading**, not to replay execution. The pattern that
+works: break at the **sink** — the point where the wrong result surfaces (the emit, the
+return, the failing assert) — read **which path fired and the deciding values right there**,
+then `bt` back to the code that decided it and **read that code** to find the fix. One or two
+launches, and then you're reading again.
+
+The single most useful signal is often which breakpoints **did *not* fire**. A *missing*
+output means the sink was never reached (rdbg reports `NOT BOUND` or `bound, 0 hits`) — so
+the bug is an upstream gate that wrongly accepted or returned early. Go read that gate; don't
+keep adding breakpoints hunting for code that never ran.
+
+**The trap is walking execution.** Stepping instruction-by-instruction, `eval`-looping to
+reconstruct state by hand, or falling back to `dbg!`/`println!` instrumentation are the
+signature of runs that burn tokens and still lose. If you're stepping more than a short hop,
+or on your third `launch`, stop — read the code the backtrace pointed at instead. The
+debugger tells you *where* to read; it rarely hands you the fix.
+
 ## Start a session
 
 ```
@@ -137,8 +156,12 @@ rdbg def | hover | refs <file> <line> <col>
 
 ## Common loops
 
-- **Wrong value.** Break where it is computed, `vars` and `eval` to see the real
-  inputs, `step` to watch it go wrong, `set` to test a fix without recompiling.
+- **Wrong or extra output.** Break at the **sink** where it surfaces, `bt` to the
+  deciding code and read it; `vars`/`eval` the real inputs there, `set` to test a fix
+  without recompiling. Reach for `step` only for a short hop you can't read — not to
+  walk the whole path.
+- **Missing output.** Break at the sink anyway: if it shows `0 hits`, the emit never
+  ran — read the upstream gate that returned early or accepted wrongly. Don't hunt.
 - **Value goes wrong at some iteration.** Break in the loop, then
   `continue --until 'sum > 100'` to jump straight to the first stop where the
   condition holds instead of continue/eval-ing by hand.

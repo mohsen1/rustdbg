@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- SKILL now teaches the **"tap, don't walk"** pattern, grounded in a study of 87 benchmark
+  transcripts: the token wins come from breaking at the **sink** (where the wrong result
+  surfaces), reading **which path fired / which breakpoints did *not* fire**, and then
+  *reading* the deciding code — not from walking execution. Stepping, `eval`-loops, and
+  `dbg!`/`println!` fallback were the signature of the runs that burned tokens and lost
+  (~45 debugger calls vs ~4 in the wins). The "Wrong value → step to watch it go wrong"
+  advice (which encouraged the losing pattern) is replaced with sink-tap → `bt` → read, and
+  a `0 hits` / missing-output rule (read the upstream gate, don't hunt). Elevates the
+  never-hit signal as the single most useful observation.
+
 ## 0.4.0
 
 - On launch, rdbg now loads debug symbols **lazily** (`settings set
