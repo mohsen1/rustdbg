@@ -91,6 +91,6 @@ the agent more consistent, not just cheaper. So the skill's typical behavior nev
 ```sh
 # mine cases -> cases-tsz.json (see bench_tsz.py header), then per slot + capped image:
 python3 bench_tsz.py --slot A --image /Volumes/tszA --cases 0,1,2,3 --model opus
-# multi-trial one case (median beats single-run noise):
-python3 /path/to/multitrial.py <case_idx> 4 /Volumes/tszMT
+# multi-trial one case (median beats single-run noise); run from benchmarks/:
+python3 multitrial.py <case_idx> 4 /Volumes/tszMT
 ```
