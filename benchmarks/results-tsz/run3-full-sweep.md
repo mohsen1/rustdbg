@@ -54,8 +54,14 @@ WITH run failed (see below).
   earlier; here it landed at −70%). These are single samples; the *large* effects and the
   "no cell >+100%" result are trustworthy, but exact per-case Δ needs multi-trial to state
   tightly. A multi-trial sweep is the natural next step now that runs are stable.
-- **2 hard cases failed their WITH run.** `4aac` (subclass-ctor) is hard for Opus
-  regardless — WITHOUT already cost 17.6M/44min — so its WITH failure is bug difficulty,
-  not rdbg waste. `b01338524f` (cheap: 1.04M WITHOUT) failed WITH at 205s with no result
-  event — a corrupted run, re-run for a clean number.
+- **One +100% cell, and it's variance — not debugger waste.** `b01338524f` re-ran clean
+  at **+147%** (1.04M→2.5M), so the "zero +100%" claim above is really **16 of 17** clean
+  pairs under +100%. But its transcript shows only **1 launch** and **26 greps** — the
+  debugger was barely used; the cost is reading/fix-iteration *variance*, not the agent
+  over-debugging. The SKILL did its job (few launches); single-run reading noise pushed
+  this cheap cell over the line. Multi-trial would almost certainly bring it back down.
+  This is the honest frontier: the *systematic* waste (launch-hunting, fix-thrash) is
+  gone; residual +100% cells come from run-to-run reading variance on cheap bugs.
+- **`4aac` (subclass-ctor) is genuinely hard for Opus** — WITHOUT cost 17.6M/44min; its
+  WITH failure is bug difficulty, not rdbg waste.
 - **4 not-red-at-parent skips** reduce the pool; more candidates would restore 20 clean.

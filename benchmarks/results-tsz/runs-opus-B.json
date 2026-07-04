@@ -234,5 +234,17 @@
     "wall_s": 121.3,
     "disk_killed": false,
     "timed_out": false
+  },
+  {
+    "case": "b01338524f",
+    "model": "opus",
+    "subject": "fix(checker): report TS2687 for duplicate property modifier disagreements (#1158",
+    "cond": "with",
+    "baseline_red": true,
+    "passed": true,
+    "tokens": 2565181,
+    "wall_s": 248.5,
+    "disk_killed": false,
+    "timed_out": false
   }
 ]
