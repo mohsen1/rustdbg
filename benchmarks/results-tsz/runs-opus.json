@@ -36,18 +36,6 @@
     "timed_out": false
   },
   {
-    "case": "06943a5b37",
-    "model": "opus",
-    "subject": "fix(solver): suppress false TS2322 for deeply-nested path-splitting co",
-    "cond": "with",
-    "baseline_red": true,
-    "passed": true,
-    "tokens": 3443695,
-    "wall_s": 458.4,
-    "disk_killed": false,
-    "timed_out": false
-  },
-  {
     "case": "30792170a3",
     "model": "opus",
     "subject": "fix(checker): validate keyof/readonly/unique type-operator operands (#",
@@ -149,6 +137,18 @@
     "passed": true,
     "tokens": 3367928,
     "wall_s": 529.8,
+    "disk_killed": false,
+    "timed_out": false
+  },
+  {
+    "case": "06943a5b37",
+    "model": "opus",
+    "subject": "fix(solver): suppress false TS2322 for deeply-nested path-splitting co",
+    "cond": "with",
+    "baseline_red": true,
+    "passed": true,
+    "tokens": 10184963,
+    "wall_s": 1028.7,
     "disk_killed": false,
     "timed_out": false
   }
